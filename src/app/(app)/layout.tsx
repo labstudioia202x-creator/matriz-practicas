@@ -28,7 +28,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <Link href="/dashboard" className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white">
               <svg
@@ -70,7 +70,7 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      <main className="w-full flex-1 px-4 py-6">
         {children}
       </main>
 
