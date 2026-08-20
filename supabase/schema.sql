@@ -23,6 +23,7 @@ create table if not exists public.profiles (
 create table if not exists public.practicantes (
   id uuid primary key default gen_random_uuid(),
   docente_id uuid not null references public.profiles (id) on delete cascade,
+  practica text check (practica in ('Prácticas I', 'Prácticas II', 'Prácticas III')),
   nombre_completo text,
   numero_documento text,
   programa_academico text check (programa_academico in (
@@ -57,6 +58,12 @@ create table if not exists public.practicantes (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Nota: si ya ejecutaste una versión anterior del script, agrega la columna
+-- 'practica' (Prácticas I, II o III) con el siguiente comando (idempotente):
+alter table public.practicantes
+  add column if not exists practica text
+  check (practica in ('Prácticas I', 'Prácticas II', 'Prácticas III'));
 
 -- ----------------------------------------------------------------------------
 -- 3) TRIGGERS

@@ -38,12 +38,20 @@ export default async function PracticantesPage() {
             reprobados
           </p>
         </div>
-        <Link
-          href="/practicantes/nuevo"
-          className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
-        >
-          + Nuevo practicante
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/practicantes/cargar"
+            className="rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/5"
+          >
+            ⬆ Cargar desde Excel
+          </Link>
+          <Link
+            href="/practicantes/nuevo"
+            className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+          >
+            + Nuevo practicante
+          </Link>
+        </div>
       </div>
 
       {practicantes && practicantes.length > 0 ? (
@@ -58,14 +66,22 @@ export default async function PracticantesPage() {
           </h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
             Diligencia el primer practicante de tu grupo en la matriz de
-            seguimiento.
+            seguimiento, o cárgalos todos desde un archivo Excel.
           </p>
-          <Link
-            href="/practicantes/nuevo"
-            className="mt-5 inline-block rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
-          >
-            Registrar primer practicante
-          </Link>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/practicantes/cargar"
+              className="rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/5"
+            >
+              ⬆ Cargar desde Excel
+            </Link>
+            <Link
+              href="/practicantes/nuevo"
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+            >
+              Registrar primer practicante
+            </Link>
+          </div>
         </div>
       )}
     </div>

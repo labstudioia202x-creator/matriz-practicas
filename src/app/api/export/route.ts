@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { createClient } from "@/lib/supabase/server";
 import {
   PERIODO_SEGUIMIENTO,
+  PRACTICAS,
   PROGRAMAS_ACADEMICOS,
   SEMESTRES,
   MODALIDADES,
@@ -46,6 +47,7 @@ export async function GET() {
 
   sheet.columns = [
     { key: "numero", width: 6 },
+    { key: "practica", width: 14 },
     { key: "nombre", width: 32 },
     { key: "documento", width: 14 },
     { key: "programa", width: 42 },
@@ -69,7 +71,7 @@ export async function GET() {
   };
 
   // Fila 1: Título general
-  sheet.mergeCells("A1:N1");
+  sheet.mergeCells("A1:O1");
   const titulo = sheet.getCell("A1");
   titulo.value = "INFORME DE PRACTICANTES – UCOMPENSAR";
   titulo.font = { bold: true, size: 13, color: { argb: "FFFFFFFF" } };
@@ -78,7 +80,7 @@ export async function GET() {
   sheet.getRow(1).height = 24;
 
   // Fila 2: Período
-  sheet.mergeCells("A2:N2");
+  sheet.mergeCells("A2:O2");
   const periodo = sheet.getCell("A2");
   periodo.value = `Período de seguimiento ${PERIODO_SEGUIMIENTO}`;
   periodo.font = { bold: true, color: { argb: "FF0054A6" } };
@@ -87,13 +89,13 @@ export async function GET() {
   sheet.getRow(2).height = 20;
 
   // Fila 3: Encabezados de sección
-  sheet.mergeCells("A3:F3");
-  sheet.mergeCells("G3:K3");
-  sheet.mergeCells("L3:N3");
+  sheet.mergeCells("A3:G3");
+  sheet.mergeCells("H3:L3");
+  sheet.mergeCells("M3:O3");
   const secciones = [
     { cell: "A3", texto: "DATOS DEL PRACTICANTE" },
-    { cell: "G3", texto: "INFORMACIÓN DE VINCULACIÓN" },
-    { cell: "L3", texto: "SEGUIMIENTO" },
+    { cell: "H3", texto: "INFORMACIÓN DE VINCULACIÓN" },
+    { cell: "M3", texto: "SEGUIMIENTO" },
   ];
   secciones.forEach(({ cell, texto }) => {
     const c = sheet.getCell(cell);
@@ -107,6 +109,7 @@ export async function GET() {
   // Fila 4: Titulares de columna
   const titulares = [
     "N°",
+    "Práctica",
     "Nombre Completo",
     "N° Documento",
     "Programa Académico",
@@ -138,6 +141,7 @@ export async function GET() {
     const fila = sheet.getRow(FILA_INICIO + i);
     fila.values = [
       i + 1,
+      p.practica ?? "",
       p.nombre_completo ?? "",
       p.numero_documento ?? "",
       p.programa_academico ?? "",
@@ -171,10 +175,11 @@ export async function GET() {
   const ultimaFila = FILA_INICIO + (practicantes?.length ?? 0) - 1;
   if (practicantes && practicantes.length > 0) {
     const validaciones: Array<{ col: string; valores: readonly string[] }> = [
-      { col: "D", valores: PROGRAMAS_ACADEMICOS },
-      { col: "E", valores: SEMESTRES },
-      { col: "H", valores: MODALIDADES },
-      { col: "L", valores: ESTADOS },
+      { col: "B", valores: PRACTICAS },
+      { col: "E", valores: PROGRAMAS_ACADEMICOS },
+      { col: "F", valores: SEMESTRES },
+      { col: "I", valores: MODALIDADES },
+      { col: "M", valores: ESTADOS },
     ];
 
     validaciones.forEach(({ col, valores }) => {
@@ -189,7 +194,7 @@ export async function GET() {
   }
 
   // Fechas como fechas reales de Excel
-  (["I", "J"] as const).forEach((col) => {
+  (["J", "K"] as const).forEach((col) => {
     for (let fila = FILA_INICIO; fila <= ultimaFila; fila++) {
       const celda = sheet.getCell(`${col}${fila}`);
       const valor = celda.value as string;
@@ -204,7 +209,7 @@ export async function GET() {
   sheet.views = [{ state: "frozen", ySplit: 4 }];
   sheet.autoFilter = {
     from: "A4",
-    to: "N4",
+    to: "O4",
   };
 
   const buffer = await workbook.xlsx.writeBuffer();

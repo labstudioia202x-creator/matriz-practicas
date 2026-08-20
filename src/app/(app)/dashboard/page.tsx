@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ESTADOS } from "@/lib/constants";
+import { ESTADOS, PRACTICAS } from "@/lib/constants";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   const query = supabase
     .from("practicantes")
-    .select("estado")
+    .select("estado, practica")
     .order("created_at");
   if (!esAdmin) {
     query.eq("docente_id", user.id);
@@ -47,6 +47,11 @@ export default async function DashboardPage() {
     "No vinculado": "bg-slate-200 text-slate-800 border-slate-300",
   };
 
+  const porPractica = PRACTICAS.map((practica) => ({
+    practica,
+    cantidad: practicantes?.filter((p) => p.practica === practica).length ?? 0,
+  }));
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-900">
@@ -63,6 +68,26 @@ export default async function DashboardPage() {
           <p className="text-sm text-slate-500">Total de practicantes</p>
           <p className="mt-1 text-3xl font-bold text-primary">{total}</p>
         </div>
+
+        {porPractica.map(({ practica, cantidad }) => (
+          <div
+            key={practica}
+            className="rounded-xl border border-slate-200 bg-white p-5"
+          >
+            <span className="inline-block rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-800">
+              {practica}
+            </span>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {cantidad}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-8 text-sm font-bold uppercase tracking-wide text-slate-500">
+        Por estado
+      </h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
         {porEstado.map(({ estado, cantidad }) => (
           <div
@@ -89,6 +114,12 @@ export default async function DashboardPage() {
           className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
         >
           Ver / diligenciar practicantes
+        </Link>
+        <Link
+          href="/practicantes/cargar"
+          className="rounded-lg border border-primary px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/5"
+        >
+          ⬆ Cargar desde Excel
         </Link>
         <Link
           href="/practicantes/nuevo"

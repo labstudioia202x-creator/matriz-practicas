@@ -1,3 +1,9 @@
+export const PRACTICAS = [
+  "Prácticas I",
+  "Prácticas II",
+  "Prácticas III",
+] as const;
+
 export const PROGRAMAS_ACADEMICOS = [
   "Técnica Profesional en Programación de Aplicaciones de Software",
   "Tecnología en Desarrollo de Aplicaciones Web y Móviles",

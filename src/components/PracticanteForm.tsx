@@ -7,6 +7,7 @@ import {
   FormState,
 } from "@/app/(app)/practicantes/actions";
 import {
+  PRACTICAS,
   PROGRAMAS_ACADEMICOS,
   SEMESTRES,
   MODALIDADES,
@@ -50,6 +51,26 @@ export default function PracticanteForm({
           Datos del practicante
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="practica" className={labelClases}>
+              Práctica *
+            </label>
+            <select
+              id="practica"
+              name="practica"
+              required
+              defaultValue={practicante?.practica ?? ""}
+              className={inputClases}
+            >
+              <option value="">Seleccionar…</option>
+              {PRACTICAS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="sm:col-span-2">
             <label htmlFor="nombre_completo" className={labelClases}>
               Nombre completo *

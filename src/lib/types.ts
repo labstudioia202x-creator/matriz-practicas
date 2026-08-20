@@ -1,6 +1,7 @@
 export interface Practicante {
   id: string;
   docente_id: string;
+  practica: string | null;
   nombre_completo: string | null;
   numero_documento: string | null;
   programa_academico: string | null;

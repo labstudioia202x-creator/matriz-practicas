@@ -12,6 +12,12 @@ const coloresBadge: Record<string, string> = {
   "No vinculado": "bg-slate-200 text-slate-700",
 };
 
+const coloresPractica: Record<string, string> = {
+  "Prácticas I": "bg-purple-100 text-purple-800",
+  "Prácticas II": "bg-teal-100 text-teal-800",
+  "Prácticas III": "bg-indigo-100 text-indigo-800",
+};
+
 export default function TablaAdmin({
   practicantes,
   estados,
@@ -27,7 +33,7 @@ export default function TablaAdmin({
     return practicantes.filter((p) => {
       if (filtroEstado && p.estado !== filtroEstado) return false;
       if (!texto) return true;
-      return [p.nombre_completo, p.numero_documento, p.empresa, p.docente?.full_name, p.docente?.email]
+      return [p.nombre_completo, p.numero_documento, p.empresa, p.practica, p.docente?.full_name, p.docente?.email]
         .some((v) => v?.toLowerCase().includes(texto));
     });
   }, [practicantes, filtroEstado, busqueda]);
@@ -63,6 +69,7 @@ export default function TablaAdmin({
             <tr>
               <th className="px-4 py-3 font-semibold">N°</th>
               <th className="px-4 py-3 font-semibold">Nombre</th>
+              <th className="px-4 py-3 font-semibold">Práctica</th>
               <th className="px-4 py-3 font-semibold">Documento</th>
               <th className="px-4 py-3 font-semibold">Programa</th>
               <th className="px-4 py-3 font-semibold">Sem.</th>
@@ -80,6 +87,16 @@ export default function TablaAdmin({
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {p.nombre_completo ?? "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      coloresPractica[p.practica ?? ""] ??
+                      "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {p.practica ?? "—"}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {p.numero_documento ?? "—"}
@@ -142,6 +159,7 @@ export default function TablaAdmin({
                   {i + 1}. {p.nombre_completo ?? "Sin nombre"}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-500">
+                  {p.practica ?? "Sin práctica"} ·{" "}
                   {p.programa_academico ?? "Sin programa"} · Sem.{" "}
                   {p.semestre ?? "-"}
                 </p>

@@ -7,8 +7,10 @@ Aplicación web (responsive, funciona en computador y celular) para que los **do
 - **Registro de docentes** únicamente con correos `@ucompensar.edu.co` (verificado tanto en la app como en la base de datos).
 - **Confirmación por correo** al registrarse y login con correo + contraseña.
 - **Cada docente** registra, edita y elimina únicamente **sus propios practicantes** (seguridad con Row Level Security de Supabase).
+- **Cargue masivo desde Excel**: el docente descarga la **plantilla** desde el sitio, la diligencia y sube un archivo `.xlsx` para registrar a todos sus practicantes de una vez (con validación de filas, detección de duplicados por documento y reporte de errores por fila).
+- **Etiqueta de práctica**: cada practicante se identifica con su práctica (**Prácticas I**, **Prácticas II** o **Prácticas III**).
 - **Administrador** (cuenta `admin@ucompensar.edu.co`): ve **todos** los practicantes de todos los docentes, con buscador y filtro por estado, y **exporta a Excel** (`.xlsx`) con el mismo formato de la matriz: títulos, encabezados por sección, listas desplegables y fechas.
-- Todos los campos conservan las **mismas listas de validación del Excel** (programa, semestre, modalidad, estado).
+- Todos los campos conservan las **mismas listas de validación del Excel** (práctica, programa, semestre, modalidad, estado).
 
 ## Tecnologías
 
@@ -45,6 +47,10 @@ Aplicación web (responsive, funciona en computador y celular) para que los **do
 > ejecutaste una versión anterior. Vuelve a copiar **todo** el contenido actual de
 > `supabase/schema.sql` y ejecútalo de nuevo (el script es idempotente y reemplaza
 > el bloque obsoleto de creación del admin).
+
+> ⚠️ Actualización (cargue masivo + práctica): si ya ejecutaste una versión anterior
+> del script, la nueva ejecución agrega automáticamente la columna `practica`
+> (Prácticas I, II o III) con un comando `alter table ... add column if not exists`.
 
 ## 4. Configurar la autenticación
 
@@ -121,8 +127,10 @@ src/app/(auth)/registro                  → Registro (solo @ucompensar.edu.co)
 src/app/auth/confirm                     → Confirmación de correo
 src/app/(app)/dashboard                  → Resumen con estadísticas
 src/app/(app)/practicantes               → CRUD de practicantes del docente
+src/app/(app)/practicantes/cargar        → Cargue masivo desde Excel (plantilla + subida)
 src/app/(app)/admin                      → Vista de administrador (todo + filtros)
 src/app/api/export                       → Exportación a Excel (solo admin)
+src/app/api/plantilla                    → Plantilla descargable para el cargue masivo
 ```
 
 ## Notas de seguridad
