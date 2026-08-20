@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { Practicante } from "@/lib/types";
+import { PRACTICAS, ESTADOS } from "@/lib/constants";
 import { eliminarPracticante, FormState } from "@/app/(app)/practicantes/actions";
 
 const coloresBadge: Record<string, string> = {
@@ -32,6 +33,26 @@ export default function ListaPracticantes({
     initialState
   );
 
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroPractica, setFiltroPractica] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("");
+
+  const filtrados = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    return practicantes.filter((p) => {
+      if (filtroPractica && p.practica !== filtroPractica) return false;
+      if (filtroEstado && p.estado !== filtroEstado) return false;
+      if (!texto) return true;
+      return [
+        p.nombre_completo,
+        p.numero_documento,
+        p.empresa,
+        p.correo_electronico,
+        p.tutor_empresa,
+      ].some((v) => v?.toLowerCase().includes(texto));
+    });
+  }, [practicantes, busqueda, filtroPractica, filtroEstado]);
+
   return (
     <div>
       {deleteState?.error && (
@@ -40,6 +61,59 @@ export default function ListaPracticantes({
         </div>
       )}
 
+      {/* Barra de filtros */}
+      <div className="mb-4 flex flex-wrap gap-3">
+        <input
+          type="search"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, documento, empresa, correo…"
+          className="min-w-[220px] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+        />
+        <select
+          value={filtroPractica}
+          onChange={(e) => setFiltroPractica(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Todas las prácticas</option>
+          {PRACTICAS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Todos los estados</option>
+          {ESTADOS.map((e) => (
+            <option key={e} value={e}>
+              {e}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {filtrados.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <p className="text-4xl">🔍</p>
+          <h2 className="mt-3 text-lg font-semibold text-slate-800">
+            No se encontraron practicantes
+          </h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+            Ajusta el buscador o los filtros de práctica y estado.
+          </p>
+        </div>
+      ) : (
+        <p className="mb-2 text-xs text-slate-400">
+          Mostrando {filtrados.length} de {practicantes.length} practicantes
+        </p>
+      )}
+
+      {filtrados.length > 0 && (
+        <>
       {/* Vista escritorio */}
       <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
         <table className="w-full text-left text-sm">
@@ -58,7 +132,7 @@ export default function ListaPracticantes({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {practicantes.map((p, i) => (
+            {filtrados.map((p, i) => (
               <tr key={p.id} className="align-top hover:bg-slate-50">
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
@@ -135,7 +209,7 @@ export default function ListaPracticantes({
 
       {/* Vista móvil: tarjetas */}
       <div className="space-y-3 md:hidden">
-        {practicantes.map((p, i) => (
+        {filtrados.map((p, i) => (
           <div
             key={p.id}
             className="rounded-xl border border-slate-200 bg-white p-4"
@@ -227,6 +301,8 @@ export default function ListaPracticantes({
           </div>
         ))}
       </div>
+        </>
+      )}
 
       <p className="mt-4 text-xs text-slate-400">
         Los valores de los campos siguen las mismas listas de validación de la
