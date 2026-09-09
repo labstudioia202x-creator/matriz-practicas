@@ -99,7 +99,7 @@ npm run dev
 Abre `http://localhost:3000`:
 
 - Regístrate con un correo `@ucompensar.edu.co` → confirma desde tu correo → empieza a diligenciar practicantes.
-- O ingresa como administrador: `admin@ucompensar.edu.co` / `Admin.Practicas2026`.
+- O ingresa como administrador: `admin@ucompensar.edu.co` / `**********`.
 
 > **Importante:** cambia la contraseña del admin después del primer ingreso en **Authentication → Users**.
 
