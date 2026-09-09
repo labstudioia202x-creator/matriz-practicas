@@ -120,20 +120,32 @@ export async function guardarFlujo(
     return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
   }
 
-  const url = String(formData.get("url_flujo") ?? "").trim();
+  // El textarea puede traer saltos de línea del copiar/pegar.
+  const url = String(formData.get("url_flujo") ?? "").replace(/\s+/g, "");
 
   if (!url) {
     return { error: "Pega la URL HTTP POST del disparador de tu flujo." };
   }
 
-  if (!/^https:\/\/[\w.-]+\/.*triggers\/manual\/paths\/invoke/i.test(url)) {
+  let direccion: URL;
+  try {
+    direccion = new URL(url);
+  } catch {
+    return { error: "Eso no es una dirección web válida." };
+  }
+
+  if (direccion.protocol !== "https:") {
+    return { error: "La URL del disparador debe empezar por https://" };
+  }
+
+  if (!/\/triggers\/[^/]+\/paths\/invoke/i.test(direccion.pathname)) {
     return {
       error:
         "Esa no parece la URL del disparador. Debe contener /triggers/manual/paths/invoke.",
     };
   }
 
-  if (!/[?&]sig=/i.test(url)) {
+  if (!direccion.searchParams.get("sig")) {
     return {
       error:
         'A la URL le falta la firma (sig=). En el disparador, cambia "¿Quién puede desencadenar el flujo?" a "Cualquiera", guarda y copia la URL de nuevo.',
