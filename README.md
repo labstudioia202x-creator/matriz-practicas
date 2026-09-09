@@ -87,7 +87,7 @@ Salida esperada:
 
 ```
 ✔ Usuario administrador creado: admin@ucompensar.edu.co
-  Contraseña inicial: Admin.Practicas2026
+  Contraseña inicial: **********
 ```
 
 Ahora ejecuta la aplicación:
