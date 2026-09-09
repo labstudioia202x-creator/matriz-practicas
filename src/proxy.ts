@@ -33,6 +33,7 @@ export async function proxy(request: NextRequest) {
   const isProtected =
     path.startsWith("/dashboard") ||
     path.startsWith("/practicantes") ||
+    path.startsWith("/configuracion") ||
     path.startsWith("/admin");
   const isAuthPage = path.startsWith("/login") || path.startsWith("/registro");
 

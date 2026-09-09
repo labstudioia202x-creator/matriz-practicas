@@ -23,6 +23,44 @@ const coloresPractica: Record<string, string> = {
 
 const initialState: FormState = undefined;
 
+type CampoOrden =
+  | "nombre_completo"
+  | "practica"
+  | "numero_documento"
+  | "programa_academico"
+  | "semestre"
+  | "empresa"
+  | "modalidad"
+  | "estado";
+
+type Orden = { campo: CampoOrden; dir: "asc" | "desc" };
+
+const COLUMNAS: { campo: CampoOrden; etiqueta: string }[] = [
+  { campo: "nombre_completo", etiqueta: "Nombre" },
+  { campo: "practica", etiqueta: "Práctica" },
+  { campo: "numero_documento", etiqueta: "Documento" },
+  { campo: "programa_academico", etiqueta: "Programa" },
+  { campo: "semestre", etiqueta: "Sem." },
+  { campo: "empresa", etiqueta: "Empresa" },
+  { campo: "modalidad", etiqueta: "Modalidad" },
+  { campo: "estado", etiqueta: "Estado" },
+];
+
+function esVacio(p: Practicante, campo: CampoOrden) {
+  const v = p[campo];
+  return v === null || v === undefined || v === "";
+}
+
+function comparar(a: Practicante, b: Practicante, campo: CampoOrden) {
+  if (campo === "semestre") {
+    return (a.semestre ?? 0) - (b.semestre ?? 0);
+  }
+  return String(a[campo] ?? "").localeCompare(String(b[campo] ?? ""), "es", {
+    sensitivity: "base",
+    numeric: true,
+  });
+}
+
 export default function ListaPracticantes({
   practicantes,
 }: {
@@ -36,6 +74,16 @@ export default function ListaPracticantes({
   const [busqueda, setBusqueda] = useState("");
   const [filtroPractica, setFiltroPractica] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [orden, setOrden] = useState<Orden | null>(null);
+
+  // Clic en el encabezado: ascendente → descendente → sin orden
+  function alternarOrden(campo: CampoOrden) {
+    setOrden((actual) => {
+      if (actual?.campo !== campo) return { campo, dir: "asc" };
+      if (actual.dir === "asc") return { campo, dir: "desc" };
+      return null;
+    });
+  }
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -52,6 +100,20 @@ export default function ListaPracticantes({
       ].some((v) => v?.toLowerCase().includes(texto));
     });
   }, [practicantes, busqueda, filtroPractica, filtroEstado]);
+
+  const ordenados = useMemo(() => {
+    if (!orden) return filtrados;
+    const factor = orden.dir === "asc" ? 1 : -1;
+    // Los registros sin dato quedan al final en ambas direcciones
+    return [...filtrados].sort((a, b) => {
+      const vacioA = esVacio(a, orden.campo);
+      const vacioB = esVacio(b, orden.campo);
+      if (vacioA && vacioB) return 0;
+      if (vacioA) return 1;
+      if (vacioB) return -1;
+      return factor * comparar(a, b, orden.campo);
+    });
+  }, [filtrados, orden]);
 
   return (
     <div>
@@ -120,19 +182,43 @@ export default function ListaPracticantes({
           <thead className="bg-primary text-white">
             <tr>
               <th className="px-4 py-3 font-semibold">N°</th>
-              <th className="px-4 py-3 font-semibold">Nombre</th>
-              <th className="px-4 py-3 font-semibold">Práctica</th>
-              <th className="px-4 py-3 font-semibold">Documento</th>
-              <th className="px-4 py-3 font-semibold">Programa</th>
-              <th className="px-4 py-3 font-semibold">Sem.</th>
-              <th className="px-4 py-3 font-semibold">Empresa</th>
-              <th className="px-4 py-3 font-semibold">Modalidad</th>
-              <th className="px-4 py-3 font-semibold">Estado</th>
+              {COLUMNAS.map(({ campo, etiqueta }) => {
+                const dir = orden?.campo === campo ? orden.dir : null;
+                return (
+                  <th
+                    key={campo}
+                    scope="col"
+                    aria-sort={
+                      dir === "asc"
+                        ? "ascending"
+                        : dir === "desc"
+                          ? "descending"
+                          : "none"
+                    }
+                    className="px-4 py-3 font-semibold"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => alternarOrden(campo)}
+                      title={`Ordenar por ${etiqueta}`}
+                      className="flex items-center gap-1 font-semibold transition hover:text-white/75"
+                    >
+                      {etiqueta}
+                      <span
+                        aria-hidden="true"
+                        className={`text-[10px] ${dir ? "text-white" : "text-white/40"}`}
+                      >
+                        {dir === "asc" ? "▲" : dir === "desc" ? "▼" : "⇅"}
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
               <th className="px-4 py-3 font-semibold">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtrados.map((p, i) => (
+            {ordenados.map((p, i) => (
               <tr key={p.id} className="align-top hover:bg-slate-50">
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
@@ -180,6 +266,12 @@ export default function ListaPracticantes({
                     >
                       Editar
                     </Link>
+                    <Link
+                      href={`/practicantes/${p.id}/soportes`}
+                      className="rounded-md border border-primary/40 px-2.5 py-1 text-xs font-medium text-primary transition hover:bg-primary/5"
+                    >
+                      Soportes
+                    </Link>
                     <form action={deleteAction}>
                       <input type="hidden" name="id" value={p.id} />
                       <button
@@ -209,7 +301,7 @@ export default function ListaPracticantes({
 
       {/* Vista móvil: tarjetas */}
       <div className="space-y-3 md:hidden">
-        {filtrados.map((p, i) => (
+        {ordenados.map((p, i) => (
           <div
             key={p.id}
             className="rounded-xl border border-slate-200 bg-white p-4"
@@ -274,6 +366,12 @@ export default function ListaPracticantes({
                 className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-center text-xs font-medium text-slate-700"
               >
                 Editar
+              </Link>
+              <Link
+                href={`/practicantes/${p.id}/soportes`}
+                className="flex-1 rounded-md border border-primary/40 px-3 py-1.5 text-center text-xs font-medium text-primary"
+              >
+                Soportes
               </Link>
               <form
                 action={deleteAction}

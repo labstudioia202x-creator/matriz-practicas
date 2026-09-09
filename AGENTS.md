@@ -20,6 +20,24 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - Cargue masivo desde Excel: plantilla descargable `/api/plantilla` + página `/practicantes/cargar` + acción `cargarPracticantes` (valida filas, evita duplicados por N° documento, reporta errores por fila).
 - "Mis practicantes": buscador + filtros por Práctica y Estado (componente `ListaPracticantes`).
 - Dashboard con conteos por práctica y estado; layout a ancho completo (sin `max-w-6xl`).
+- Ordenamiento por columna en "Mis practicantes": clic en el encabezado alterna ascendente / descendente / sin orden; los campos vacíos quedan siempre al final.
+- Soportes por practicante subidos a SharePoint/OneDrive (`/practicantes/[id]/soportes`), con carpeta parametrizable por docente (`/configuracion`).
+
+## Soportes en SharePoint / OneDrive
+
+- Cada docente conecta **su propia** cuenta de Microsoft (OAuth delegado, PKCE) desde `/configuracion` y pega el enlace de la carpeta donde quiere los soportes. La app resuelve el enlace con Graph (`/shares/{u!base64}/driveItem`) y cachea `driveId` + `itemId` en `profiles`.
+- Al subir un soporte se crea (si no existe) una subcarpeta con el `nombre_completo` del estudiante dentro de esa carpeta, y ahí se guarda el archivo. Registro en la tabla `soportes`.
+- Los refresh tokens viven en `microsoft_conexiones`, tabla **sin privilegios** para `anon`/`authenticated`: solo el servidor la toca con la service_role key (`src/lib/supabase/admin.ts`). Microsoft rota el refresh token en cada uso y el código lo regraba.
+- Requiere un registro de app en Azure AD (Entra ID) con permisos **delegados** `offline_access`, `Files.ReadWrite.All`, `User.Read`, y las URI de redireccionamiento de local y de producción. Variables: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` (ver `.env.local.example`).
+- Límite de 20 MB por archivo (`TAMANO_MAXIMO_SOPORTE_MB`) y `serverActions.bodySizeLimit: "25mb"` en `next.config.ts`. **Ojo en Vercel**: el cuerpo de una petición a una función serverless tiene un tope de ~4.5 MB, así que en producción los archivos más grandes fallarán aunque el límite de la app sea mayor; para superarlo habría que subir desde el navegador directo a la sesión de carga de Graph.
+- ROPC (usuario y contraseña) no es una opción: está deprecado y se bloquea con MFA.
+
+### Estado real (sep 2026)
+
+- El docente **no tiene acceso a Entra ID** en el tenant de UCompensar, así que la vía de OAuth con Microsoft **no se puede usar todavía**. Su sección se quitó de `/configuracion`, pero **el código sigue en el repo** (`src/lib/microsoft/*`, `src/app/api/microsoft/*`, `FormularioCarpeta`, `BotonDesconectar`) y la lógica de subida aún lo soporta: basta con volver a mostrar la sección cuando TI registre la app.
+- La vía activa es un **flujo de Power Automate** por docente (`flujos_soportes`): disparador HTTP con "Cualquiera" (URL con firma `sig=`, es una credencial) → OneDrive "Crear archivo". La app manda `{carpeta, nombreArchivo, contenidoBase64}`; el flujo crea la subcarpeta del estudiante si no existe. Probado end to end.
+- Limitaciones de esa vía: el `webUrl` vuelve vacío (la acción *Crear archivo* de OneDrive no lo devuelve, haría falta *Crear vínculo para compartir*), y **no se puede borrar** el archivo remoto, por lo que eliminar un soporte solo quita el registro y avisa al docente.
+- Ojo con los nombres de carpeta: OneDrive rechaza los que terminan en espacio.
 
 ## Base de datos (Supabase)
 

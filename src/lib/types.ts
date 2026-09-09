@@ -29,3 +29,17 @@ export interface Profile {
 export interface PracticanteConDocente extends Practicante {
   docente: Pick<Profile, "full_name" | "email"> | null;
 }
+export interface Soporte {
+  id: string;
+  practicante_id: string;
+  docente_id: string;
+  nombre_archivo: string;
+  descripcion: string | null;
+  tamano_bytes: number | null;
+  tipo_mime: string | null;
+  carpeta: string | null;
+  sharepoint_item_id: string | null;
+  web_url: string | null;
+  destino: "microsoft" | "power_automate";
+  subido_en: string;
+}

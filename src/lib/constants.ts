@@ -33,3 +33,5 @@ export const ESTADOS = [
 export const DOMINIO_UCOMPENSAR = "ucompensar.edu.co";
 
 export const PERIODO_SEGUIMIENTO = "2026 - 2";
+// Tope de tamaño por soporte subido a SharePoint.
+export const TAMANO_MAXIMO_SOPORTE_MB = 20;

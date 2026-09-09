@@ -230,3 +230,109 @@ create policy "practicante_admin_eliminar_todo"
 --         update public.profiles set role = 'admin'
 --         where email = 'admin@ucompensar.edu.co';
 -- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
+-- 7) SOPORTES DE PRACTICANTES + CONEXIÓN CON SHAREPOINT / ONEDRIVE
+--    Cada docente conecta SU propia cuenta de Microsoft (OAuth delegado) e
+--    indica la carpeta de SharePoint donde se guardarán los soportes.
+--    La app crea dentro de esa carpeta una subcarpeta por estudiante.
+-- ----------------------------------------------------------------------------
+
+-- 7a) Parámetros de la carpeta del docente (columna a columna, idempotente)
+alter table public.profiles
+  add column if not exists sharepoint_carpeta_url text;
+alter table public.profiles
+  add column if not exists sharepoint_drive_id text;
+alter table public.profiles
+  add column if not exists sharepoint_item_id text;
+alter table public.profiles
+  add column if not exists sharepoint_carpeta_nombre text;
+alter table public.profiles
+  add column if not exists microsoft_email text;
+
+-- 7b) Tokens de Microsoft.
+--     TABLA SENSIBLE: guarda el refresh token del docente. No se otorga ningún
+--     privilegio a anon/authenticated, así que jamás es visible desde el
+--     navegador; solo el servidor la usa con la service_role key.
+create table if not exists public.microsoft_conexiones (
+  docente_id uuid primary key references public.profiles (id) on delete cascade,
+  cuenta_email text,
+  refresh_token text not null,
+  scope text,
+  creado_en timestamptz not null default now(),
+  actualizado_en timestamptz not null default now()
+);
+
+alter table public.microsoft_conexiones enable row level security;
+revoke all on public.microsoft_conexiones from anon, authenticated;
+
+-- 7c) Soportes subidos por practicante
+create table if not exists public.soportes (
+  id uuid primary key default gen_random_uuid(),
+  practicante_id uuid not null references public.practicantes (id) on delete cascade,
+  docente_id uuid not null references public.profiles (id) on delete cascade,
+  nombre_archivo text not null,
+  descripcion text,
+  tamano_bytes bigint,
+  tipo_mime text,
+  carpeta text,
+  sharepoint_item_id text,
+  web_url text,
+  subido_en timestamptz not null default now()
+);
+
+create index if not exists soportes_practicante_idx
+  on public.soportes (practicante_id);
+
+alter table public.soportes enable row level security;
+grant select, insert, update, delete on public.soportes to authenticated;
+
+drop policy if exists "soporte_docente_leer" on public.soportes;
+create policy "soporte_docente_leer"
+  on public.soportes for select
+  using (docente_id = auth.uid());
+
+drop policy if exists "soporte_admin_leer_todos" on public.soportes;
+create policy "soporte_admin_leer_todos"
+  on public.soportes for select
+  using (public.is_admin());
+
+drop policy if exists "soporte_docente_crear" on public.soportes;
+create policy "soporte_docente_crear"
+  on public.soportes for insert
+  with check (docente_id = auth.uid());
+
+drop policy if exists "soporte_docente_eliminar" on public.soportes;
+create policy "soporte_docente_eliminar"
+  on public.soportes for delete
+  using (docente_id = auth.uid());
+
+drop policy if exists "soporte_admin_eliminar_todo" on public.soportes;
+create policy "soporte_admin_eliminar_todo"
+  on public.soportes for delete
+  using (public.is_admin());
+
+-- ----------------------------------------------------------------------------
+-- 8) DESTINO ALTERNATIVO: FLUJO DE POWER AUTOMATE
+--    Cuando el tenant no permite registrar una app en Entra ID, el docente
+--    crea un flujo propio con disparador HTTP que escribe en su OneDrive.
+--    La URL del disparador lleva firma (sig=) y ES UNA CREDENCIAL: se guarda
+--    en una tabla sin privilegios para anon/authenticated, igual que los
+--    refresh tokens de Microsoft.
+-- ----------------------------------------------------------------------------
+create table if not exists public.flujos_soportes (
+  docente_id uuid primary key references public.profiles (id) on delete cascade,
+  url text not null,
+  actualizado_en timestamptz not null default now()
+);
+
+alter table public.flujos_soportes enable row level security;
+revoke all on public.flujos_soportes from anon, authenticated;
+
+-- Bandera no sensible para que la interfaz sepa si ya hay flujo configurado
+alter table public.profiles
+  add column if not exists flujo_configurado boolean not null default false;
+
+-- Origen de cada soporte: define si se puede borrar el archivo remoto
+alter table public.soportes
+  add column if not exists destino text not null default 'microsoft'
+  check (destino in ('microsoft', 'power_automate'));
