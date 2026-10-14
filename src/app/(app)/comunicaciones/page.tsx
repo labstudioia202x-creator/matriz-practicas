@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Comunicacion, ComunicacionEnvio, Practicante } from "@/lib/types";
 import { ETIQUETA_CANAL } from "@/lib/comunicaciones/plantilla";
 import EnvioComunicaciones from "@/components/EnvioComunicaciones";
+import AccionesHistorial from "@/components/AccionesHistorial";
 
 export const dynamic = "force-dynamic";
 // Cada lote espera la respuesta del flujo por estudiante y canal.
@@ -45,7 +46,7 @@ export default async function ComunicacionesPage() {
   const { data: envios } = historial.length
     ? await supabase
         .from("comunicacion_envios")
-        .select("comunicacion_id, nombre, canal, estado, error")
+        .select("comunicacion_id, practicante_id, nombre, canal, estado, error")
         .in(
           "comunicacion_id",
           historial.map((c) => c.id)
@@ -101,6 +102,17 @@ export default async function ComunicacionesPage() {
               const cuenta = (estado: ComunicacionEnvio["estado"]) =>
                 lista.filter((e) => e.estado === estado).length;
               const problemas = lista.filter((e) => e.estado !== "enviado");
+              const conRegistro = new Set(lista.map((e) => e.practicante_id));
+              const pendientes = (c.destinatarios ?? []).filter(
+                (id) => !conRegistro.has(id)
+              );
+              const fallidos = [
+                ...new Set(
+                  lista
+                    .filter((e) => e.estado === "fallido" && e.practicante_id)
+                    .map((e) => e.practicante_id as string)
+                ),
+              ];
               return (
                 <li
                   key={c.id}
@@ -126,7 +138,17 @@ export default async function ComunicacionesPage() {
                     {cuenta("omitido") > 0 && (
                       <span className="text-amber-700"> · {cuenta("omitido")} omitidos</span>
                     )}
+                    {pendientes.length > 0 && (
+                      <span className="font-semibold text-red-700">
+                        {" "}· {pendientes.length} estudiantes sin enviar
+                      </span>
+                    )}
                   </p>
+                  <AccionesHistorial
+                    comunicacionId={c.id}
+                    pendientes={pendientes}
+                    fallidos={fallidos}
+                  />
                   <details className="mt-2">
                     <summary className="cursor-pointer text-xs font-medium text-slate-600">
                       Ver mensaje{problemas.length > 0 && " y envíos con problemas"}

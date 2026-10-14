@@ -16,25 +16,15 @@ import {
 } from "@/lib/comunicaciones/plantilla";
 import {
   crearComunicacion,
-  enviarLote,
   ResultadoEnvio,
 } from "@/app/(app)/comunicaciones/actions";
-
-const TAMANO_LOTE = 5;
+import { enviarPorLotes } from "@/lib/comunicaciones/lotes";
 
 const coloresEstado: Record<ResultadoEnvio["estado"], string> = {
   enviado: "bg-green-100 text-green-800",
   fallido: "bg-red-100 text-red-700",
   omitido: "bg-amber-100 text-amber-800",
 };
-
-function enLotes<T>(lista: T[], tamano: number): T[][] {
-  const lotes: T[][] = [];
-  for (let i = 0; i < lista.length; i += tamano) {
-    lotes.push(lista.slice(i, i + tamano));
-  }
-  return lotes;
-}
 
 export default function EnvioComunicaciones({
   practicantes,
@@ -142,16 +132,9 @@ export default function EnvioComunicaciones({
 
   // Envía por lotes y va acumulando resultados; reemplaza los de un reintento
   async function procesar(id: string, ids: string[]) {
-    const lotes = enLotes(ids, TAMANO_LOTE);
     setProgreso({ hechos: 0, total: ids.length });
 
-    for (const lote of lotes) {
-      const respuesta = await enviarLote(id, lote);
-      if (respuesta.error) {
-        setError(respuesta.error);
-        return;
-      }
-      const nuevos = respuesta.resultados ?? [];
+    const fallo = await enviarPorLotes(id, ids, (nuevos, procesados) => {
       setResultados((actuales) => [
         ...actuales.filter(
           (r) =>
@@ -161,8 +144,10 @@ export default function EnvioComunicaciones({
         ),
         ...nuevos,
       ]);
-      setProgreso((p) => ({ ...p, hechos: p.hechos + lote.length }));
-    }
+      setProgreso({ hechos: procesados, total: ids.length });
+    });
+
+    if (fallo) setError(fallo);
   }
 
   async function enviar() {
@@ -187,7 +172,7 @@ export default function EnvioComunicaciones({
         asunto,
         mensaje,
         canales: [...canales],
-        totalDestinatarios: seleccionados.length,
+        practicanteIds: seleccionados.map((p) => p.id),
       });
       if (!creada.id) {
         setError(creada.error ?? "No se pudo crear la comunicación.");

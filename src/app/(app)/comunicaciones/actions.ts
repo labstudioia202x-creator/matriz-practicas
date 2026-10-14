@@ -25,8 +25,10 @@ export type ResultadoEnvio = {
 };
 
 // El navegador manda los destinatarios por lotes pequeños para mostrar el
-// avance y no chocar con el tiempo máximo de la función en Vercel.
-const TAMANO_MAXIMO_LOTE = 10;
+// avance y no chocar con el tiempo máximo de la función en Vercel (60 s):
+// 2 estudiantes x 2 canales = 4 llamadas en paralelo, cada una con tope de
+// 30 s (ver `enviarPorFlujo`), así que un lote cabe holgado en una sola ola.
+const TAMANO_MAXIMO_LOTE = 2;
 const ENVIOS_SIMULTANEOS = 4;
 
 /** Registra la comunicación y devuelve su id; el envío va en `enviarLote`. */
@@ -34,7 +36,7 @@ export async function crearComunicacion(datos: {
   asunto: string;
   mensaje: string;
   canales: Canal[];
-  totalDestinatarios: number;
+  practicanteIds: string[];
 }): Promise<{ id?: string; error?: string }> {
   const supabase = await createClient();
 
@@ -51,7 +53,8 @@ export async function crearComunicacion(datos: {
   if (!asunto) return { error: "Escribe el asunto." };
   if (!mensaje) return { error: "Escribe el mensaje." };
   if (canales.length === 0) return { error: "Elige al menos un canal." };
-  if (datos.totalDestinatarios < 1) {
+  const destinatarios = [...new Set(datos.practicanteIds)];
+  if (destinatarios.length < 1) {
     return { error: "Selecciona al menos un estudiante." };
   }
 
@@ -69,7 +72,8 @@ export async function crearComunicacion(datos: {
       asunto,
       mensaje,
       canales,
-      total_destinatarios: datos.totalDestinatarios,
+      destinatarios,
+      total_destinatarios: destinatarios.length,
     })
     .select("id")
     .single();
@@ -140,10 +144,12 @@ export async function enviarLote(
   );
 
   const tareas: (() => Promise<ResultadoEnvio>)[] = [];
+  const correos = new Map<string, string | null>();
 
   for (const p of (practicantes ?? []) as Practicante[]) {
     const nombre = p.nombre_completo || "(sin nombre)";
     const correo = p.correo_electronico?.trim() ?? "";
+    correos.set(p.id, p.correo_electronico);
     const asunto = personalizar(comunicacion.asunto, p, docente);
     const cuerpo = textoAHtml(personalizar(comunicacion.mensaje, p, docente));
 
@@ -193,30 +199,33 @@ export async function enviarLote(
     }
   }
 
-  const resultados = await ejecutarConLimite(tareas, ENVIOS_SIMULTANEOS);
-
-  if (resultados.length > 0) {
-    const porId = new Map(
-      ((practicantes ?? []) as Practicante[]).map((p) => [p.id, p])
-    );
+  // Cada resultado se registra apenas termina: si la función se corta por
+  // tiempo, lo que ya salió queda guardado y "Enviar a los que faltan" no lo
+  // repite.
+  const registrar = async (r: ResultadoEnvio) => {
     const { error } = await supabase.from("comunicacion_envios").upsert(
-      resultados.map((r) => ({
+      {
         comunicacion_id: comunicacionId,
         docente_id: user.id,
         practicante_id: r.practicanteId,
         nombre: r.nombre,
-        correo: porId.get(r.practicanteId)?.correo_electronico ?? null,
+        correo: correos.get(r.practicanteId) ?? null,
         canal: r.canal,
         estado: r.estado,
         error: r.error,
         enviado_en: new Date().toISOString(),
-      })),
+      },
       { onConflict: "comunicacion_id,practicante_id,canal" }
     );
+    // El mensaje ya salió (o no): el fallo del registro no debe ocultarlo.
+    if (error) console.error("No se pudo registrar el envío:", error.message);
+    return r;
+  };
 
-    // Los mensajes ya salieron: el fallo del registro no debe ocultarlo.
-    if (error) console.error("No se pudo registrar los envíos:", error.message);
-  }
+  const resultados = await ejecutarConLimite(
+    tareas.map((tarea) => async () => registrar(await tarea())),
+    ENVIOS_SIMULTANEOS
+  );
 
   return { resultados };
 }

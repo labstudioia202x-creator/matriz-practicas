@@ -67,11 +67,13 @@ export async function enviarPorFlujo(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(mensaje),
       cache: "no-store",
-      signal: AbortSignal.timeout(45_000),
+      // Con el lote de 4 llamadas en paralelo, 30 s deja margen bajo los 60 s
+      // de la función. Un flujo que reintenta Teams puede tardar más que eso.
+      signal: AbortSignal.timeout(30_000),
     });
   } catch {
     throw new FlujoComunicacionesError(
-      "No se obtuvo respuesta del flujo de Power Automate."
+      "El flujo no respondió en 30 s (o falló la red). Puede que el mensaje sí haya salido: revisa el historial de ejecuciones del flujo antes de reintentar."
     );
   }
 

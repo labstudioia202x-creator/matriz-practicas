@@ -368,6 +368,10 @@ create table if not exists public.comunicaciones (
   creado_en timestamptz not null default now()
 );
 
+-- Practicantes elegidos, para poder completar un envío que se interrumpió
+alter table public.comunicaciones
+  add column if not exists destinatarios uuid[] not null default '{}';
+
 create index if not exists comunicaciones_docente_idx
   on public.comunicaciones (docente_id, creado_en desc);
 

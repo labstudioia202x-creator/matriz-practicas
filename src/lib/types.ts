@@ -50,6 +50,7 @@ export interface Comunicacion {
   asunto: string;
   mensaje: string;
   canales: ("teams" | "correo")[];
+  destinatarios: string[];
   total_destinatarios: number;
   creado_en: string;
 }

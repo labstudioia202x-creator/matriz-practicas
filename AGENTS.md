@@ -44,7 +44,9 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 
 - `/comunicaciones`: el docente filtra/marca estudiantes, elige canales (Teams, correo), escribe asunto y mensaje con variables (`{nombre}`, `{practica}`, `{empresa}`, `{estado}`, `{programa}`, `{tutor}`, `{fecha_inicio}`, `{fecha_fin}`, `{docente}`; definidas en `src/lib/comunicaciones/plantilla.ts`) y ve la vista previa por estudiante.
 - Mismo patrón que los soportes: **segundo flujo de Power Automate por docente** (`flujos_comunicaciones`, solo servidor; bandera `profiles.flujo_comunicaciones_configurado`). La app hace UNA llamada por estudiante y canal con `{canal, correo, asunto, mensajeHtml}`; el flujo usa una Condición: `teams` → "Publicar mensaje en un chat o canal" como Bot de flujo en el chat con el bot; si no → Outlook "Enviar un correo (V2)". La acción Respuesta 200 al final es obligatoria para saber si salió (502 = falló una acción).
-- El navegador envía por lotes de 5 (`enviarLote`, máx. 10, 4 en paralelo, `maxDuration = 60`) para mostrar avance y no exceder el tiempo de Vercel. Es idempotente: lo ya "enviado" no se repite, y así funciona "Reintentar fallidos".
+- El navegador envía por lotes de 2 estudiantes (`enviarPorLotes` → `enviarLote`, 4 llamadas en paralelo, 30 s de tope por llamada, `maxDuration = 60`). Cada resultado se guarda apenas termina. Es idempotente: lo ya "enviado" no se repite.
+- `comunicaciones.destinatarios` guarda los elegidos; el historial muestra "N sin enviar" y los botones "Enviar a los que faltan" / "Reintentar fallidos".
+- Incidente oct 2026: con lotes de 5 y registro al final del lote, el envío se cortó a los 25 de 46 (función cortada por tiempo, probablemente por los reintentos de Teams dentro del flujo) y Teams falló en todos. Recomendado: en el flujo, directiva de reintentos "Ninguna" en la acción de Teams.
 - Teams solo se intenta para correos `@ucompensar.edu.co`; los demás quedan "omitido" en Teams. Registro en `comunicaciones` + `comunicacion_envios` (único por comunicación, practicante y canal) e historial en la misma página.
 
 ## Base de datos (Supabase)
