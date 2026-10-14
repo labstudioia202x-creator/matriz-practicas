@@ -4,18 +4,41 @@ import { useActionState } from "react";
 import {
   guardarFlujo,
   quitarFlujo,
+  guardarFlujoComunicaciones,
+  quitarFlujoComunicaciones,
   ConfigState,
 } from "@/app/(app)/configuracion/actions";
 
 const estadoInicial: ConfigState = undefined;
 
+const TIPOS = {
+  soportes: {
+    guardar: guardarFlujo,
+    quitar: quitarFlujo,
+    alcance: "escribir en tu OneDrive",
+    confirmarQuitar:
+      "¿Quitar el flujo? Dejarás de poder subir soportes hasta que configures otro destino.",
+  },
+  comunicaciones: {
+    guardar: guardarFlujoComunicaciones,
+    quitar: quitarFlujoComunicaciones,
+    alcance: "enviar mensajes de Teams y correos a tu nombre",
+    confirmarQuitar:
+      "¿Quitar el flujo? Dejarás de poder enviar comunicaciones hasta que configures otro.",
+  },
+};
+
 export default function FormularioFlujo({
   configurado,
+  tipo = "soportes",
 }: {
   configurado: boolean;
+  tipo?: keyof typeof TIPOS;
 }) {
+  const config = TIPOS[tipo];
+  const idCampo = `url_flujo_${tipo}`;
   const [estado, accion, guardando] = useActionState(
-    guardarFlujo,
+    config.guardar,
     estadoInicial
   );
 
@@ -23,20 +46,20 @@ export default function FormularioFlujo({
     <div className="mt-4">
       <form action={accion}>
         <label
-          htmlFor="url_flujo"
+          htmlFor={idCampo}
           className="block text-sm font-medium text-slate-700"
         >
           URL HTTP POST del disparador
         </label>
         <textarea
-          id="url_flujo"
+          id={idCampo}
           name="url_flujo"
           rows={3}
           placeholder="https://…/triggers/manual/paths/invoke?api-version=1&sp=…&sig=…"
           className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
         />
         <p className="mt-1 text-xs text-slate-400">
-          Esta dirección permite escribir en tu OneDrive: trátala como una
+          Esta dirección permite {config.alcance}: trátala como una
           contraseña. Se guarda en el servidor, en una tabla que el navegador no
           puede consultar, y nunca se muestra de vuelta.
         </p>
@@ -62,14 +85,12 @@ export default function FormularioFlujo({
       </form>
 
       {configurado && (
-        <form action={quitarFlujo} className="mt-3">
+        <form action={config.quitar} className="mt-3">
           <button
             type="submit"
             onClick={(e) => {
               if (
-                !confirm(
-                  "¿Quitar el flujo? Dejarás de poder subir soportes hasta que configures otro destino."
-                )
+                !confirm(config.confirmarQuitar)
               ) {
                 e.preventDefault();
               }

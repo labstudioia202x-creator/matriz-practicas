@@ -22,6 +22,7 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - Dashboard con conteos por práctica y estado; layout a ancho completo (sin `max-w-6xl`).
 - Ordenamiento por columna en "Mis practicantes": clic en el encabezado alterna ascendente / descendente / sin orden; los campos vacíos quedan siempre al final.
 - Soportes por practicante subidos a SharePoint/OneDrive (`/practicantes/[id]/soportes`), con carpeta parametrizable por docente (`/configuracion`).
+- Comunicaciones masivas personalizadas por Teams y correo (`/comunicaciones`), ver sección propia.
 
 ## Soportes en SharePoint / OneDrive
 
@@ -38,6 +39,13 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - La vía activa es un **flujo de Power Automate** por docente (`flujos_soportes`): disparador HTTP con "Cualquiera" (URL con firma `sig=`, es una credencial) → OneDrive "Crear archivo". La app manda `{carpeta, nombreArchivo, contenidoBase64}`; el flujo crea la subcarpeta del estudiante si no existe. Probado end to end.
 - Limitaciones de esa vía: el `webUrl` vuelve vacío (la acción *Crear archivo* de OneDrive no lo devuelve, haría falta *Crear vínculo para compartir*), y **no se puede borrar** el archivo remoto, por lo que eliminar un soporte solo quita el registro y avisa al docente.
 - Ojo con los nombres de carpeta: OneDrive rechaza los que terminan en espacio.
+
+## Comunicaciones masivas (Teams + correo)
+
+- `/comunicaciones`: el docente filtra/marca estudiantes, elige canales (Teams, correo), escribe asunto y mensaje con variables (`{nombre}`, `{practica}`, `{empresa}`, `{estado}`, `{programa}`, `{tutor}`, `{fecha_inicio}`, `{fecha_fin}`, `{docente}`; definidas en `src/lib/comunicaciones/plantilla.ts`) y ve la vista previa por estudiante.
+- Mismo patrón que los soportes: **segundo flujo de Power Automate por docente** (`flujos_comunicaciones`, solo servidor; bandera `profiles.flujo_comunicaciones_configurado`). La app hace UNA llamada por estudiante y canal con `{canal, correo, asunto, mensajeHtml}`; el flujo usa una Condición: `teams` → "Publicar mensaje en un chat o canal" como Bot de flujo en el chat con el bot; si no → Outlook "Enviar un correo (V2)". La acción Respuesta 200 al final es obligatoria para saber si salió (502 = falló una acción).
+- El navegador envía por lotes de 5 (`enviarLote`, máx. 10, 4 en paralelo, `maxDuration = 60`) para mostrar avance y no exceder el tiempo de Vercel. Es idempotente: lo ya "enviado" no se repite, y así funciona "Reintentar fallidos".
+- Teams solo se intenta para correos `@ucompensar.edu.co`; los demás quedan "omitido" en Teams. Registro en `comunicaciones` + `comunicacion_envios` (único por comunicación, practicante y canal) e historial en la misma página.
 
 ## Base de datos (Supabase)
 

@@ -43,3 +43,25 @@ export interface Soporte {
   destino: "microsoft" | "power_automate";
   subido_en: string;
 }
+
+export interface Comunicacion {
+  id: string;
+  docente_id: string;
+  asunto: string;
+  mensaje: string;
+  canales: ("teams" | "correo")[];
+  total_destinatarios: number;
+  creado_en: string;
+}
+
+export interface ComunicacionEnvio {
+  id: string;
+  comunicacion_id: string;
+  practicante_id: string | null;
+  nombre: string | null;
+  correo: string | null;
+  canal: "teams" | "correo";
+  estado: "enviado" | "fallido" | "omitido";
+  error: string | null;
+  enviado_en: string;
+}

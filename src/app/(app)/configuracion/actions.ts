@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { obtenerAccessToken, eliminarConexion } from "@/lib/microsoft/conexion";
 import { resolverCarpeta } from "@/lib/microsoft/graph";
 import { guardarUrlFlujo, eliminarUrlFlujo } from "@/lib/soportes/flujo";
+import {
+  guardarUrlFlujoComunicaciones,
+  eliminarUrlFlujoComunicaciones,
+} from "@/lib/comunicaciones/flujo";
+import { validarUrlDisparador } from "@/lib/power-automate";
 
 export type ConfigState =
   | { error?: string; ok?: string; carpeta?: string }
@@ -102,9 +107,7 @@ export async function desconectarMicrosoft(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Guarda la URL del disparador del flujo. Se valida el formato y se comprueba
- * que traiga la firma `sig=`: sin ella el flujo exige un token de Entra ID que
- * la aplicación no puede obtener.
+ * Guarda la URL del disparador del flujo de soportes.
  */
 export async function guardarFlujo(
   state: ConfigState,
@@ -123,34 +126,8 @@ export async function guardarFlujo(
   // El textarea puede traer saltos de línea del copiar/pegar.
   const url = String(formData.get("url_flujo") ?? "").replace(/\s+/g, "");
 
-  if (!url) {
-    return { error: "Pega la URL HTTP POST del disparador de tu flujo." };
-  }
-
-  let direccion: URL;
-  try {
-    direccion = new URL(url);
-  } catch {
-    return { error: "Eso no es una dirección web válida." };
-  }
-
-  if (direccion.protocol !== "https:") {
-    return { error: "La URL del disparador debe empezar por https://" };
-  }
-
-  if (!/\/triggers\/[^/]+\/paths\/invoke/i.test(direccion.pathname)) {
-    return {
-      error:
-        "Esa no parece la URL del disparador. Debe contener /triggers/manual/paths/invoke.",
-    };
-  }
-
-  if (!direccion.searchParams.get("sig")) {
-    return {
-      error:
-        'A la URL le falta la firma (sig=). En el disparador, cambia "¿Quién puede desencadenar el flujo?" a "Cualquiera", guarda y copia la URL de nuevo.',
-    };
-  }
+  const errorUrl = validarUrlDisparador(url);
+  if (errorUrl) return { error: errorUrl };
 
   try {
     await guardarUrlFlujo(user.id, url);
@@ -176,4 +153,52 @@ export async function quitarFlujo(): Promise<void> {
 
   await eliminarUrlFlujo(user.id);
   revalidatePath("/configuracion");
+}
+
+/** Guarda la URL del flujo que envía las comunicaciones por Teams y correo. */
+export async function guardarFlujoComunicaciones(
+  state: ConfigState,
+  formData: FormData
+): Promise<ConfigState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+  }
+
+  const url = String(formData.get("url_flujo") ?? "").replace(/\s+/g, "");
+
+  const errorUrl = validarUrlDisparador(url);
+  if (errorUrl) return { error: errorUrl };
+
+  try {
+    await guardarUrlFlujoComunicaciones(user.id, url);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "No se pudo guardar el flujo.",
+    };
+  }
+
+  revalidatePath("/configuracion");
+  revalidatePath("/comunicaciones");
+  return { ok: "Flujo guardado. Ya puedes enviar comunicaciones." };
+}
+
+export async function quitarFlujoComunicaciones(): Promise<void> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  await eliminarUrlFlujoComunicaciones(user.id);
+  revalidatePath("/configuracion");
+  revalidatePath("/comunicaciones");
 }

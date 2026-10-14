@@ -9,6 +9,7 @@ export default function NavLinks({ esAdmin }: { esAdmin: boolean }) {
   const links = [
     { href: "/dashboard", label: "Inicio" },
     { href: "/practicantes", label: "Mis practicantes" },
+    { href: "/comunicaciones", label: "Comunicaciones" },
     { href: "/configuracion", label: "Configuración" },
     ...(esAdmin ? [{ href: "/admin", label: "Administración" }] : []),
   ];

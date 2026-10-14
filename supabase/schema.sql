@@ -336,3 +336,93 @@ alter table public.profiles
 alter table public.soportes
   add column if not exists destino text not null default 'microsoft'
   check (destino in ('microsoft', 'power_automate'));
+
+-- ----------------------------------------------------------------------------
+-- 9) COMUNICACIONES MASIVAS (TEAMS + CORREO) VÍA POWER AUTOMATE
+--    El docente escribe un mensaje con variables ({nombre}, {empresa}…), la
+--    app lo personaliza por estudiante y lo envía a un segundo flujo del
+--    docente que publica en Teams o manda el correo desde su Outlook.
+-- ----------------------------------------------------------------------------
+
+-- 9a) URL del flujo (credencial, solo servidor)
+create table if not exists public.flujos_comunicaciones (
+  docente_id uuid primary key references public.profiles (id) on delete cascade,
+  url text not null,
+  actualizado_en timestamptz not null default now()
+);
+
+alter table public.flujos_comunicaciones enable row level security;
+revoke all on public.flujos_comunicaciones from anon, authenticated;
+
+alter table public.profiles
+  add column if not exists flujo_comunicaciones_configurado boolean not null default false;
+
+-- 9b) Cada comunicación (la plantilla tal como la escribió el docente)
+create table if not exists public.comunicaciones (
+  id uuid primary key default gen_random_uuid(),
+  docente_id uuid not null references public.profiles (id) on delete cascade,
+  asunto text not null,
+  mensaje text not null,
+  canales text[] not null,
+  total_destinatarios integer not null default 0,
+  creado_en timestamptz not null default now()
+);
+
+create index if not exists comunicaciones_docente_idx
+  on public.comunicaciones (docente_id, creado_en desc);
+
+alter table public.comunicaciones enable row level security;
+grant select, insert on public.comunicaciones to authenticated;
+
+drop policy if exists "comunicacion_docente_leer" on public.comunicaciones;
+create policy "comunicacion_docente_leer"
+  on public.comunicaciones for select
+  using (docente_id = auth.uid());
+
+drop policy if exists "comunicacion_admin_leer_todas" on public.comunicaciones;
+create policy "comunicacion_admin_leer_todas"
+  on public.comunicaciones for select
+  using (public.is_admin());
+
+drop policy if exists "comunicacion_docente_crear" on public.comunicaciones;
+create policy "comunicacion_docente_crear"
+  on public.comunicaciones for insert
+  with check (docente_id = auth.uid());
+
+-- 9c) Resultado por estudiante y canal (una fila por intento vigente)
+create table if not exists public.comunicacion_envios (
+  id uuid primary key default gen_random_uuid(),
+  comunicacion_id uuid not null references public.comunicaciones (id) on delete cascade,
+  docente_id uuid not null references public.profiles (id) on delete cascade,
+  practicante_id uuid references public.practicantes (id) on delete set null,
+  nombre text,
+  correo text,
+  canal text not null check (canal in ('teams', 'correo')),
+  estado text not null check (estado in ('enviado', 'fallido', 'omitido')),
+  error text,
+  enviado_en timestamptz not null default now(),
+  unique (comunicacion_id, practicante_id, canal)
+);
+
+alter table public.comunicacion_envios enable row level security;
+grant select, insert, update on public.comunicacion_envios to authenticated;
+
+drop policy if exists "envio_docente_leer" on public.comunicacion_envios;
+create policy "envio_docente_leer"
+  on public.comunicacion_envios for select
+  using (docente_id = auth.uid());
+
+drop policy if exists "envio_admin_leer_todos" on public.comunicacion_envios;
+create policy "envio_admin_leer_todos"
+  on public.comunicacion_envios for select
+  using (public.is_admin());
+
+drop policy if exists "envio_docente_crear" on public.comunicacion_envios;
+create policy "envio_docente_crear"
+  on public.comunicacion_envios for insert
+  with check (docente_id = auth.uid());
+
+drop policy if exists "envio_docente_actualizar" on public.comunicacion_envios;
+create policy "envio_docente_actualizar"
+  on public.comunicacion_envios for update
+  using (docente_id = auth.uid());
