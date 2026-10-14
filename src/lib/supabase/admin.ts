@@ -13,8 +13,9 @@ export function createAdminClient() {
 
   if (!url || !key) {
     throw new Error(
-      "Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno. " +
-        "Es necesaria para guardar la conexión con Microsoft."
+      "Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno del servidor. " +
+        "Es necesaria para guardar las credenciales del destino de los soportes. " +
+        "En Vercel se agrega en Settings > Environment Variables."
     );
   }
 
