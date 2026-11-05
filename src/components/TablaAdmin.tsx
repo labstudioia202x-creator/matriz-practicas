@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { PracticanteConDocente } from "@/lib/types";
+import { AVANCES } from "@/lib/constants";
+import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
 
 const coloresBadge: Record<string, string> = {
   Aprobado: "bg-green-100 text-green-800",
@@ -26,17 +28,21 @@ export default function TablaAdmin({
   estados: readonly string[];
 }) {
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroAvance, setFiltroAvance] = useState("");
   const [busqueda, setBusqueda] = useState("");
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return practicantes.filter((p) => {
       if (filtroEstado && p.estado !== filtroEstado) return false;
+      if (filtroAvance && (p.avance ?? "Sin reportar") !== filtroAvance) {
+        return false;
+      }
       if (!texto) return true;
       return [p.nombre_completo, p.numero_documento, p.empresa, p.practica, p.docente?.full_name, p.docente?.email]
         .some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, filtroEstado, busqueda]);
+  }, [practicantes, filtroEstado, filtroAvance, busqueda]);
 
   return (
     <div>
@@ -60,6 +66,18 @@ export default function TablaAdmin({
             </option>
           ))}
         </select>
+        <select
+          value={filtroAvance}
+          onChange={(e) => setFiltroAvance(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Todos los avances</option>
+          {[...AVANCES, "Sin reportar"].map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Escritorio */}
@@ -78,6 +96,7 @@ export default function TablaAdmin({
               <th className="px-4 py-3 font-semibold">Inicio – Fin</th>
               <th className="px-4 py-3 font-semibold">Tutor empresa</th>
               <th className="px-4 py-3 font-semibold">Estado</th>
+              <th className="px-4 py-3 font-semibold">Avance</th>
               <th className="px-4 py-3 font-semibold">Docente</th>
             </tr>
           </thead>
@@ -132,6 +151,12 @@ export default function TablaAdmin({
                     </p>
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  <AvanceBadge avance={p.avance} />
+                  <p className="mt-1">
+                    <CompletitudResumen practicante={p} />
+                  </p>
+                </td>
                 <td className="px-4 py-3 text-slate-600">
                   {p.docente?.full_name || p.docente?.email || "—"}
                 </td>
@@ -175,6 +200,13 @@ export default function TablaAdmin({
             </div>
 
             <dl className="mt-3 space-y-1 text-xs text-slate-600">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-400">Avance:</dt>
+                <dd className="flex flex-wrap items-center justify-end gap-2">
+                  <CompletitudResumen practicante={p} />
+                  <AvanceBadge avance={p.avance} />
+                </dd>
+              </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-slate-400">Documento:</dt>
                 <dd>{p.numero_documento ?? "—"}</dd>

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Practicante } from "@/lib/types";
+import { PracticanteConDocumentos } from "@/lib/types";
 import ListaPracticantes from "@/components/ListaPracticantes";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +18,25 @@ export default async function PracticantesPage() {
     redirect("/login");
   }
 
-  const { data: practicantes } = await supabase
-    .from("practicantes")
-    .select("*")
-    .eq("docente_id", user.id)
-    .order("created_at", { ascending: true });
+  const [{ data: practicantes }, { data: perfil }, cabeceras] = await Promise.all([
+    supabase
+      .from("practicantes")
+      .select("*, soportes(tipo_documento)")
+      .eq("docente_id", user.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("flujo_configurado, sharepoint_item_id")
+      .eq("id", user.id)
+      .maybeSingle(),
+    headers(),
+  ]);
+
+  const destinoListo = Boolean(
+    perfil?.flujo_configurado || perfil?.sharepoint_item_id
+  );
+  const protocolo = cabeceras.get("x-forwarded-proto") ?? "https";
+  const enlacePortal = `${protocolo}://${cabeceras.get("host")}/acceso-estudiante`;
 
   const totalReprobados =
     practicantes?.filter((p) => p.estado === "Reprobado").length ?? 0;
@@ -54,9 +69,38 @@ export default async function PracticantesPage() {
         </div>
       </div>
 
+      {practicantes && practicantes.length > 0 && (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          <p>
+            <span className="font-semibold text-slate-900">
+              Espacio de tus estudiantes:
+            </span>{" "}
+            entran en{" "}
+            <span className="break-all font-medium text-primary">
+              {enlacePortal}
+            </span>{" "}
+            con el correo que registraste aquí y reciben un código de acceso.
+          </p>
+          {!destinoListo && (
+            <p className="mt-2 text-amber-800">
+              Aún no podrán subir documentos:{" "}
+              <Link
+                href="/configuracion"
+                className="font-semibold underline underline-offset-2"
+              >
+                configura el flujo de soportes
+              </Link>
+              .
+            </p>
+          )}
+        </div>
+      )}
+
       {practicantes && practicantes.length > 0 ? (
         <div className="mt-6">
-          <ListaPracticantes practicantes={practicantes as Practicante[]} />
+          <ListaPracticantes
+            practicantes={practicantes as PracticanteConDocumentos[]}
+          />
         </div>
       ) : (
         <div className="mt-10 rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">

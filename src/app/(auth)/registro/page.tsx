@@ -51,7 +51,6 @@ export default function RegistroPage() {
       options: {
         data: {
           full_name: fullName.trim(),
-          role: "docente",
         },
         emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },

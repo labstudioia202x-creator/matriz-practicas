@@ -15,18 +15,26 @@ export interface Practicante {
   estado: string | null;
   motivo_reprobacion: string | null;
   observaciones: string | null;
+  avance: string | null;
+  avance_actualizado_en: string | null;
+  formularios_diligenciados: string[];
   created_at: string;
   updated_at: string;
+}
+
+/** Practicante con los archivos entregados, para medir completitud. */
+export interface PracticanteConDocumentos extends Practicante {
+  soportes?: { tipo_documento: string | null }[];
 }
 
 export interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: "docente" | "admin";
+  role: "docente" | "admin" | "estudiante";
 }
 
-export interface PracticanteConDocente extends Practicante {
+export interface PracticanteConDocente extends PracticanteConDocumentos {
   docente: Pick<Profile, "full_name" | "email"> | null;
 }
 export interface Soporte {
@@ -41,6 +49,8 @@ export interface Soporte {
   sharepoint_item_id: string | null;
   web_url: string | null;
   destino: "microsoft" | "power_automate";
+  tipo_documento: string | null;
+  subido_por: "docente" | "estudiante";
   subido_en: string;
 }
 

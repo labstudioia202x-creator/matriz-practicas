@@ -53,7 +53,6 @@ try {
     email_confirm: true,
     user_metadata: {
       full_name: "Administrador de Prácticas",
-      role: "admin",
     },
   });
 
@@ -69,6 +68,18 @@ try {
       process.exit(0);
     }
     console.error("Error al crear el administrador:", error.message);
+    process.exit(1);
+  }
+
+  // El rol no viaja en los metadatos: el trigger de perfiles los ignora porque
+  // el cliente puede escribirlos. La promoción la hace la service_role.
+  const { error: errorRol } = await supabase
+    .from("profiles")
+    .update({ role: "admin" })
+    .eq("id", data.user.id);
+
+  if (errorRol) {
+    console.error("El usuario se creó, pero no se pudo promover:", errorRol.message);
     process.exit(1);
   }
 

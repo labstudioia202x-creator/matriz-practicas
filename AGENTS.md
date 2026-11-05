@@ -23,6 +23,7 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - Ordenamiento por columna en "Mis practicantes": clic en el encabezado alterna ascendente / descendente / sin orden; los campos vacíos quedan siempre al final.
 - Soportes por practicante subidos a SharePoint/OneDrive (`/practicantes/[id]/soportes`), con carpeta parametrizable por docente (`/configuracion`).
 - Comunicaciones masivas personalizadas por Teams y correo (`/comunicaciones`), ver sección propia.
+- Portal del estudiante (`/acceso-estudiante` → `/mi-practica`): entra con un código al correo, completa datos, sube documentos e indica su paso. Ver sección propia.
 
 ## Soportes en SharePoint / OneDrive
 
@@ -49,10 +50,25 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - Incidente oct 2026: con lotes de 5 y registro al final del lote, el envío se cortó a los 25 de 46 (función cortada por tiempo, probablemente por los reintentos de Teams dentro del flujo) y Teams falló en todos. Recomendado: en el flujo, directiva de reintentos "Ninguna" en la acción de Teams.
 - Teams solo se intenta para correos `@ucompensar.edu.co`; los demás quedan "omitido" en Teams. Registro en `comunicaciones` + `comunicacion_envios` (único por comunicación, practicante y canal) e historial en la misma página.
 
+## Portal del estudiante
+
+- Acceso sin contraseña: `/acceso-estudiante` llama a `prepararAcceso` (si el correo está en `practicantes`, crea la cuenta ya confirmada) y luego el navegador usa `signInWithOtp` + `verifyOtp` de Supabase Auth. Se llama desde el navegador para que los límites por IP apliquen a cada estudiante.
+- El correo lo envía Supabase, **no** el flujo de Power Automate del docente: si pasara por el flujo, el docente vería el código y podría entrar como el estudiante, o como el admin poniendo su correo en un practicante. No cambiar esto sin resolver ese problema.
+- Requiere configurar Supabase: SMTP propio, plantilla **Magic Link** con `{{ .Token }}` y límite de correos por hora (ver README). La cuenta se crea confirmada porque las cuentas nuevas sin confirmar reciben la plantilla "Confirm signup", que lleva enlace y no código.
+- Rol `estudiante`: lo asigna `handle_new_user` solo a cuentas **sin contraseña** cuyo correo está en la matriz. Unión por `practicantes.correo_normalizado` (columna generada). Un mismo correo puede tener varias prácticas (selector `?p=`).
+- Autorización: el estudiante **no tiene RLS** sobre `practicantes`, porque RLS no limita columnas y podría aprobarse a sí mismo. Todo pasa por `src/lib/portal/sesion.ts` con service_role, filtrando por el correo verificado y con lista cerrada de columnas (nunca `estado`, `motivo_reprobacion`, `observaciones`). `src/proxy.ts` lo saca de las rutas de docente, incluidas sus server actions.
+- Datos: solo puede llenar campos vacíos (`CAMPOS_ESTUDIANTE`); lo ya diligenciado lo corrige el docente.
+- `practicantes.avance` (`Inicio | En curso | Finalizado`) lo reporta el estudiante. Es distinto de `estado`, el resultado oficial del docente. `Inicio` y `En curso` no bloquean por pendientes; `Finalizado` exige toda la tercera entrega, validado en el servidor (`marcarAvance`).
+- La guía sigue las tres entregas oficiales y se edita en `src/lib/portal/guia.ts`. Hay dos tipos de requisito: `documento` (archivo; algunos solo PDF) y `formulario` (se diligencia fuera de la app: check en `practicantes.formularios_diligenciados` y evidencia en `soportes`, opcional en las entregas 1 y 2, obligatoria en la 3). Los `id` quedan guardados: no renombrarlos si ya hay entregas cargadas.
+- Las entregas oficiales recibidas cubren Contrato laboral, Contrato de aprendizaje, Convenio y Social o comunitaria. Emprendimiento y Consultoría no son competencia del docente que define esta guía: no hay requisitos propios previstos y, si un practicante tiene una de esas modalidades, ve la misma guía. Confirmado por el docente: la evidencia del formulario de la tercera entrega es obligatoria y `Finalizado` no exige las entregas 1 y 2. Los formularios aún no existen, así que la guía no tiene enlaces: el estudiante solo declara con el check que lo diligenció.
+- Los documentos van a la carpeta del docente con el mismo flujo de soportes (`src/lib/soportes/subir.ts`); si el docente no lo tiene configurado, el estudiante no puede subir y `/practicantes` lo avisa. Tope de 4 MB por el límite de Vercel, solo PDF, imágenes y Office.
+- El docente y el admin ven avance y completitud en `ListaPracticantes`, `TablaAdmin`, el dashboard y la página de soportes. El Excel exportado no cambió.
+
 ## Base de datos (Supabase)
 
 - `supabase/schema.sql` es idempotente; los cambios de esquema se aplican volviendo a ejecutarlo completo en el SQL Editor (incluye ALTER `add column if not exists practica`).
-- `.env.local` (NO versionado) requiere: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable), `SUPABASE_SERVICE_ROLE_KEY` (secret, solo script setup-admin).
+- `.env.local` (NO versionado) requiere: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable), `SUPABASE_SERVICE_ROLE_KEY` (secret: setup-admin, flujos y portal del estudiante; también en Vercel).
+- Los roles nunca salen de los metadatos del usuario ni los puede cambiar él mismo: la sesión solo puede actualizar las columnas de `profiles` listadas en la sección 10 de `schema.sql`. Si la app empieza a escribir otra columna de `profiles` con la sesión del usuario, hay que agregarla ahí.
 
 ## Enlaces del sitio
 

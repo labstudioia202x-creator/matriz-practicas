@@ -70,19 +70,38 @@ alter table public.practicantes
 -- ----------------------------------------------------------------------------
 
 -- 3a) Crear perfil automáticamente cuando se registra un usuario en auth.users
+--     El rol NUNCA se toma de raw_user_meta_data: ese campo lo escribe el cliente
+--     al registrarse, así que cualquiera podría declararse administrador.
+--     - Cuenta SIN contraseña cuyo correo está en la matriz: 'estudiante'. Las
+--       crea el portal antes de enviar el código de acceso; solo se puede entrar
+--       a ellas demostrando ser dueño del buzón.
+--     - Todo lo demás: 'docente' (el constraint exige correo @ucompensar.edu.co).
+--     - El admin se promueve aparte: ver scripts/setup-admin.mjs.
 create or replace function public.handle_new_user ()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_nombre text;
+  v_es_estudiante boolean := false;
 begin
+  if coalesce(new.encrypted_password, '') = '' then
+    select p.nombre_completo, true
+      into v_nombre, v_es_estudiante
+    from public.practicantes p
+    where p.correo_normalizado = lower(btrim(new.email))
+    order by p.created_at desc
+    limit 1;
+  end if;
+
   insert into public.profiles (id, email, full_name, role)
   values (
     new.id,
     lower(new.email),
-    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
-    coalesce(new.raw_user_meta_data ->> 'role', 'docente')
+    coalesce(v_nombre, new.raw_user_meta_data ->> 'full_name', ''),
+    case when v_es_estudiante then 'estudiante' else 'docente' end
   )
   on conflict (id) do nothing;
   return new;
@@ -146,6 +165,22 @@ as $$
   );
 $$;
 
+-- Docentes y administradores. Los estudiantes también son `authenticated`, por
+-- eso las políticas de creación deben distinguirlos: su portal trabaja desde el
+-- servidor y no necesita escribir en estas tablas con su propia sesión.
+create or replace function public.es_personal ()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('docente', 'admin')
+  );
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 5) ROW LEVEL SECURITY
 -- ----------------------------------------------------------------------------
@@ -156,7 +191,6 @@ alter table public.practicantes enable row level security;
 --     ya no se exponen automáticamente a través de la Data API)
 grant usage on schema public to anon, authenticated;
 grant select on public.profiles to anon, authenticated;
-grant update on public.profiles to authenticated;
 grant select, insert, update, delete on public.practicantes to authenticated;
 
 -- ---------- POLÍTICAS profiles ----------
@@ -189,7 +223,7 @@ create policy "practicante_admin_leer_todos"
 drop policy if exists "practicante_docente_crear" on public.practicantes;
 create policy "practicante_docente_crear"
   on public.practicantes for insert
-  with check (docente_id = auth.uid());
+  with check (docente_id = auth.uid() and public.es_personal());
 
 drop policy if exists "practicante_docente_editar" on public.practicantes;
 create policy "practicante_docente_editar"
@@ -221,7 +255,7 @@ create policy "practicante_admin_eliminar_todo"
 --      1. Copia .env.local.example -> .env.local y agrega SUPABASE_SERVICE_ROLE_KEY
 --         (Supabase: Project Settings > API > service_role).
 --      2. Ejecuta:  npm run setup-admin
---      El trigger handle_new_user creará el perfil automáticamente con rol 'admin'.
+--      El script crea el usuario y promueve su perfil al rol 'admin'.
 --
 --    OPCIÓN B (manual):
 --      1. Dashboard > Authentication > Users > "Add user":
@@ -299,7 +333,7 @@ create policy "soporte_admin_leer_todos"
 drop policy if exists "soporte_docente_crear" on public.soportes;
 create policy "soporte_docente_crear"
   on public.soportes for insert
-  with check (docente_id = auth.uid());
+  with check (docente_id = auth.uid() and public.es_personal());
 
 drop policy if exists "soporte_docente_eliminar" on public.soportes;
 create policy "soporte_docente_eliminar"
@@ -391,7 +425,7 @@ create policy "comunicacion_admin_leer_todas"
 drop policy if exists "comunicacion_docente_crear" on public.comunicaciones;
 create policy "comunicacion_docente_crear"
   on public.comunicaciones for insert
-  with check (docente_id = auth.uid());
+  with check (docente_id = auth.uid() and public.es_personal());
 
 -- 9c) Resultado por estudiante y canal (una fila por intento vigente)
 create table if not exists public.comunicacion_envios (
@@ -424,9 +458,75 @@ create policy "envio_admin_leer_todos"
 drop policy if exists "envio_docente_crear" on public.comunicacion_envios;
 create policy "envio_docente_crear"
   on public.comunicacion_envios for insert
-  with check (docente_id = auth.uid());
+  with check (docente_id = auth.uid() and public.es_personal());
 
 drop policy if exists "envio_docente_actualizar" on public.comunicacion_envios;
 create policy "envio_docente_actualizar"
   on public.comunicacion_envios for update
   using (docente_id = auth.uid());
+
+-- ----------------------------------------------------------------------------
+-- 10) PORTAL DEL ESTUDIANTE
+--    El estudiante entra con un código enviado a su correo, completa los datos
+--    que faltan, sube sus documentos e indica en qué paso va. Su portal NO usa
+--    RLS sobre practicantes: lo atiende el servidor con la service_role, filtrando
+--    por el correo verificado de la sesión y limitando los campos, porque RLS no
+--    puede impedir que con su propia sesión se cambie, por ejemplo, el `estado`.
+-- ----------------------------------------------------------------------------
+
+-- 10a) Nuevo rol. Los estudiantes pueden tener correo personal: el docente los
+--      registra con el correo que tenga, no siempre el institucional.
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('docente', 'admin', 'estudiante'));
+
+alter table public.profiles drop constraint if exists perfiles_correo_ucompensar;
+alter table public.profiles
+  add constraint perfiles_correo_ucompensar
+  check (role = 'estudiante' or email ~* '@ucompensar\.edu\.co$');
+
+-- 10b) Nadie puede cambiar su propio rol: de la tabla profiles, la sesión del
+--      usuario solo puede actualizar estas columnas. Las banderas de los flujos
+--      las escribe el servidor con la service_role.
+revoke insert, update, delete on public.profiles from anon, authenticated;
+grant update (
+  full_name,
+  sharepoint_carpeta_url,
+  sharepoint_drive_id,
+  sharepoint_item_id,
+  sharepoint_carpeta_nombre
+) on public.profiles to authenticated;
+
+-- 10c) Avance que reporta el estudiante. Es distinto de `estado`, que sigue
+--      siendo el resultado oficial que define el docente.
+alter table public.practicantes
+  add column if not exists avance text
+  check (avance in ('Inicio', 'En curso', 'Finalizado'));
+alter table public.practicantes
+  add column if not exists avance_actualizado_en timestamptz;
+
+-- 10d) Correo normalizado: en la matriz puede venir con mayúsculas o espacios
+--      (sobre todo desde Excel). Es la llave que une la sesión con el practicante.
+alter table public.practicantes
+  add column if not exists correo_normalizado text
+  generated always as (lower(btrim(correo_electronico))) stored;
+
+create index if not exists practicantes_correo_normalizado_idx
+  on public.practicantes (correo_normalizado);
+
+-- 10e) Soportes: a qué documento de la guía corresponde y quién lo subió
+alter table public.soportes
+  add column if not exists tipo_documento text;
+alter table public.soportes
+  add column if not exists subido_por text not null default 'docente'
+  check (subido_por in ('docente', 'estudiante'));
+
+-- 10f) Formularios externos que el estudiante declara haber diligenciado (ids de
+--      src/lib/portal/guia.ts). Las evidencias van a soportes como cualquier otro
+--      archivo, con el id del formulario en tipo_documento.
+alter table public.practicantes
+  add column if not exists formularios_diligenciados text[] not null default '{}';
+
+-- Que la Data API vea de inmediato las columnas nuevas
+notify pgrst, 'reload schema';

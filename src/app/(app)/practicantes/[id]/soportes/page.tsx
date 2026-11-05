@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Practicante, Soporte } from "@/lib/types";
 import { sanitizarNombre } from "@/lib/microsoft/graph";
 import PanelSoportes from "@/components/PanelSoportes";
+import { AvanceBadge } from "@/components/IndicadoresPortal";
+import {
+  calcularCompletitud,
+  estadoRequisito,
+  PASOS_GUIA,
+} from "@/lib/portal/guia";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +59,8 @@ export default async function SoportesPage({
   const destinoListo =
     viaFlujo || Boolean(perfil?.microsoft_email && perfil?.sharepoint_item_id);
   const carpetaEstudiante = sanitizarNombre(p.nombre_completo ?? "");
+  const listaSoportes = (soportes ?? []) as Soporte[];
+  const { datos, entregables } = calcularCompletitud(p, listaSoportes);
 
   return (
     <div>
@@ -72,6 +80,69 @@ export default async function SoportesPage({
         >
           ← Volver
         </Link>
+      </div>
+
+      {/* Lo que el estudiante ha reportado desde su portal */}
+      <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
+          <span className="flex items-center gap-2">
+            Avance: <AvanceBadge avance={p.avance} />
+          </span>
+          <span>
+            Datos {datos.hechos} de {datos.total}
+          </span>
+          <span>
+            Entregables {entregables.hechos} de {entregables.total}
+          </span>
+          {p.avance_actualizado_en && (
+            <span className="text-xs text-slate-500">
+              Reportado el{" "}
+              {new Date(p.avance_actualizado_en).toLocaleDateString("es-CO", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                timeZone: "America/Bogota",
+              })}
+            </span>
+          )}
+        </div>
+        <div className="mt-3 grid gap-4 border-t border-slate-100 pt-3 md:grid-cols-3">
+          {PASOS_GUIA.map((paso) => (
+            <div key={paso.avance}>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {paso.entrega} · {paso.avance}
+              </h2>
+              <ul className="mt-1 space-y-0.5 text-sm">
+                {paso.requisitos.map((r) => {
+                  const { cumplido, diligenciado, tieneArchivo } =
+                    estadoRequisito(
+                      r,
+                      p.formularios_diligenciados,
+                      listaSoportes
+                    );
+                  return (
+                    <li
+                      key={r.id}
+                      className={cumplido ? "text-slate-900" : "text-slate-500"}
+                    >
+                      <span aria-hidden="true">{cumplido ? "✓ " : "○ "}</span>
+                      {r.nombre}
+                      <span className="sr-only">
+                        {cumplido ? " (listo)" : " (pendiente)"}
+                      </span>
+                      {r.tipo === "formulario" && (
+                        <span className="block pl-4 text-xs text-slate-500">
+                          {diligenciado ? "Diligenciado" : "Sin diligenciar"} ·{" "}
+                          {tieneArchivo ? "con evidencia" : "sin evidencia"}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Dónde van a quedar los archivos */}
@@ -111,7 +182,7 @@ export default async function SoportesPage({
 
       <PanelSoportes
         practicanteId={p.id}
-        soportes={(soportes ?? []) as Soporte[]}
+        soportes={listaSoportes}
         habilitado={destinoListo}
       />
     </div>

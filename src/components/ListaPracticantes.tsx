@@ -2,8 +2,9 @@
 
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
-import { Practicante } from "@/lib/types";
-import { PRACTICAS, ESTADOS } from "@/lib/constants";
+import { PracticanteConDocumentos } from "@/lib/types";
+import { AVANCES, PRACTICAS, ESTADOS } from "@/lib/constants";
+import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
 import { eliminarPracticante, FormState } from "@/app/(app)/practicantes/actions";
 
 const coloresBadge: Record<string, string> = {
@@ -31,7 +32,8 @@ type CampoOrden =
   | "semestre"
   | "empresa"
   | "modalidad"
-  | "estado";
+  | "estado"
+  | "avance";
 
 type Orden = { campo: CampoOrden; dir: "asc" | "desc" };
 
@@ -44,16 +46,25 @@ const COLUMNAS: { campo: CampoOrden; etiqueta: string }[] = [
   { campo: "empresa", etiqueta: "Empresa" },
   { campo: "modalidad", etiqueta: "Modalidad" },
   { campo: "estado", etiqueta: "Estado" },
+  { campo: "avance", etiqueta: "Avance" },
 ];
 
-function esVacio(p: Practicante, campo: CampoOrden) {
+function esVacio(p: PracticanteConDocumentos, campo: CampoOrden) {
   const v = p[campo];
   return v === null || v === undefined || v === "";
 }
 
-function comparar(a: Practicante, b: Practicante, campo: CampoOrden) {
+function comparar(
+  a: PracticanteConDocumentos,
+  b: PracticanteConDocumentos,
+  campo: CampoOrden
+) {
   if (campo === "semestre") {
     return (a.semestre ?? 0) - (b.semestre ?? 0);
+  }
+  if (campo === "avance") {
+    const orden = AVANCES as readonly (string | null)[];
+    return orden.indexOf(a.avance) - orden.indexOf(b.avance);
   }
   return String(a[campo] ?? "").localeCompare(String(b[campo] ?? ""), "es", {
     sensitivity: "base",
@@ -64,7 +75,7 @@ function comparar(a: Practicante, b: Practicante, campo: CampoOrden) {
 export default function ListaPracticantes({
   practicantes,
 }: {
-  practicantes: Practicante[];
+  practicantes: PracticanteConDocumentos[];
 }) {
   const [deleteState, deleteAction, deleting] = useActionState(
     eliminarPracticante,
@@ -74,6 +85,7 @@ export default function ListaPracticantes({
   const [busqueda, setBusqueda] = useState("");
   const [filtroPractica, setFiltroPractica] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroAvance, setFiltroAvance] = useState("");
   const [orden, setOrden] = useState<Orden | null>(null);
 
   // Clic en el encabezado: ascendente → descendente → sin orden
@@ -90,6 +102,9 @@ export default function ListaPracticantes({
     return practicantes.filter((p) => {
       if (filtroPractica && p.practica !== filtroPractica) return false;
       if (filtroEstado && p.estado !== filtroEstado) return false;
+      if (filtroAvance && (p.avance ?? "Sin reportar") !== filtroAvance) {
+        return false;
+      }
       if (!texto) return true;
       return [
         p.nombre_completo,
@@ -99,7 +114,7 @@ export default function ListaPracticantes({
         p.tutor_empresa,
       ].some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, busqueda, filtroPractica, filtroEstado]);
+  }, [practicantes, busqueda, filtroPractica, filtroEstado, filtroAvance]);
 
   const ordenados = useMemo(() => {
     if (!orden) return filtrados;
@@ -153,6 +168,18 @@ export default function ListaPracticantes({
           {ESTADOS.map((e) => (
             <option key={e} value={e}>
               {e}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filtroAvance}
+          onChange={(e) => setFiltroAvance(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Todos los avances</option>
+          {[...AVANCES, "Sin reportar"].map((a) => (
+            <option key={a} value={a}>
+              {a}
             </option>
           ))}
         </select>
@@ -259,6 +286,12 @@ export default function ListaPracticantes({
                   </span>
                 </td>
                 <td className="px-4 py-3">
+                  <AvanceBadge avance={p.avance} />
+                  <p className="mt-1">
+                    <CompletitudResumen practicante={p} />
+                  </p>
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <Link
                       href={`/practicantes/${p.id}/editar`}
@@ -328,6 +361,13 @@ export default function ListaPracticantes({
             </div>
 
             <dl className="mt-3 space-y-1 text-xs text-slate-600">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-400">Avance:</dt>
+                <dd className="flex flex-wrap items-center justify-end gap-2">
+                  <CompletitudResumen practicante={p} />
+                  <AvanceBadge avance={p.avance} />
+                </dd>
+              </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-slate-400">Documento:</dt>
                 <dd>{p.numero_documento ?? "—"}</dd>

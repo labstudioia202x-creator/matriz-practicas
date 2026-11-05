@@ -4,13 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TAMANO_MAXIMO_SOPORTE_MB } from "@/lib/constants";
 import { obtenerAccessToken } from "@/lib/microsoft/conexion";
-import { obtenerUrlFlujo, subirPorFlujo } from "@/lib/soportes/flujo";
-import {
-  asegurarSubcarpeta,
-  eliminarArchivo,
-  sanitizarNombre,
-  subirArchivo,
-} from "@/lib/microsoft/graph";
+import { eliminarArchivo, sanitizarNombre } from "@/lib/microsoft/graph";
+import { subirADestinoDelDocente } from "@/lib/soportes/subir";
+import { REQUISITOS_GUIA } from "@/lib/portal/guia";
 
 export type SoporteState = { error?: string; ok?: string } | undefined;
 
@@ -35,8 +31,12 @@ export async function subirSoporte(
 
   const practicanteId = String(formData.get("practicante_id") ?? "");
   const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const tipoDocumento = String(formData.get("tipo_documento") ?? "");
   const archivo = formData.get("archivo");
 
+  if (tipoDocumento && !REQUISITOS_GUIA.some((r) => r.id === tipoDocumento)) {
+    return { error: "Selecciona un tipo de documento válido." };
+  }
   if (!practicanteId) {
     return { error: "No se pudo identificar el practicante." };
   }
@@ -71,78 +71,28 @@ export async function subirSoporte(
     };
   }
 
-  const { data: perfil } = await supabase
-    .from("profiles")
-    .select("sharepoint_drive_id, sharepoint_item_id, flujo_configurado")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const urlFlujo = perfil?.flujo_configurado
-    ? await obtenerUrlFlujo(user.id)
-    : null;
-  const viaMicrosoft = Boolean(
-    perfil?.sharepoint_drive_id && perfil?.sharepoint_item_id
-  );
-
-  if (!urlFlujo && !viaMicrosoft) {
-    return {
-      error:
-        "Todavía no has configurado el destino de los soportes. Configúralo en Configuración.",
-    };
-  }
-
   const nombreCarpeta = sanitizarNombre(practicante.nombre_completo);
 
   try {
-    const contenido = await archivo.arrayBuffer();
+    const registro = await subirADestinoDelDocente(
+      user.id,
+      nombreCarpeta,
+      archivo,
+      archivo.name
+    );
 
-    // El flujo de Power Automate tiene prioridad: es el que funciona sin
-    // registro de aplicación en Entra ID.
-    const registro = urlFlujo
-      ? await (async () => {
-          const subido = await subirPorFlujo(
-            urlFlujo,
-            nombreCarpeta,
-            archivo.name,
-            contenido
-          );
-          return {
-            nombre_archivo: archivo.name,
-            tamano_bytes: archivo.size,
-            sharepoint_item_id: subido.id,
-            web_url: subido.webUrl,
-            destino: "power_automate" as const,
-          };
-        })()
-      : await (async () => {
-          const accessToken = await obtenerAccessToken(user.id);
-          const carpetaEstudianteId = await asegurarSubcarpeta(
-            accessToken,
-            perfil!.sharepoint_drive_id!,
-            perfil!.sharepoint_item_id!,
-            nombreCarpeta
-          );
-          const subido = await subirArchivo(
-            accessToken,
-            perfil!.sharepoint_drive_id!,
-            carpetaEstudianteId,
-            archivo.name,
-            contenido,
-            archivo.type
-          );
-          return {
-            nombre_archivo: subido.name,
-            tamano_bytes: subido.size ?? archivo.size,
-            sharepoint_item_id: subido.id,
-            web_url: subido.webUrl,
-            destino: "microsoft" as const,
-          };
-        })();
+    if (!registro) {
+      return {
+        error:
+          "Todavía no has configurado el destino de los soportes. Configúralo en Configuración.",
+      };
+    }
 
     const { error } = await supabase.from("soportes").insert({
       practicante_id: practicanteId,
       docente_id: user.id,
       descripcion: descripcion || null,
+      tipo_documento: tipoDocumento || null,
       tipo_mime: archivo.type || null,
       carpeta: nombreCarpeta,
       ...registro,

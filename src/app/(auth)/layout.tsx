@@ -18,7 +18,7 @@ export default function AuthLayout({
           {children}
         </div>
         <p className="mt-6 text-center text-xs text-sky-100/90">
-          Acceso restringido a correos{" "}
+          Docentes: correo{" "}
           <Link
             href="https://www.ucompensar.edu.co"
             target="_blank"
@@ -27,6 +27,7 @@ export default function AuthLayout({
           >
             @ucompensar.edu.co
           </Link>
+          {" · "}Estudiantes: el correo registrado por su docente
         </p>
       </div>
     </div>

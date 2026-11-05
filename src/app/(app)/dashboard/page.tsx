@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ESTADOS, PRACTICAS } from "@/lib/constants";
+import { AVANCES, ESTADOS, PRACTICAS } from "@/lib/constants";
+import { AvanceBadge } from "@/components/IndicadoresPortal";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
 
   const query = supabase
     .from("practicantes")
-    .select("estado, practica")
+    .select("estado, practica, avance")
     .order("created_at");
   if (!esAdmin) {
     query.eq("docente_id", user.id);
@@ -50,6 +51,11 @@ export default async function DashboardPage() {
   const porPractica = PRACTICAS.map((practica) => ({
     practica,
     cantidad: practicantes?.filter((p) => p.practica === practica).length ?? 0,
+  }));
+
+  const porAvance = [...AVANCES, null].map((avance) => ({
+    avance,
+    cantidad: practicantes?.filter((p) => p.avance === avance).length ?? 0,
   }));
 
   return (
@@ -101,6 +107,23 @@ export default async function DashboardPage() {
             >
               {estado}
             </span>
+            <p className="mt-2 text-2xl font-bold text-slate-900">
+              {cantidad}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-8 text-sm font-bold uppercase tracking-wide text-slate-500">
+        Avance reportado por los estudiantes
+      </h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {porAvance.map(({ avance, cantidad }) => (
+          <div
+            key={avance ?? "sin-reportar"}
+            className="rounded-xl border border-slate-200 bg-white p-5"
+          >
+            <AvanceBadge avance={avance} />
             <p className="mt-2 text-2xl font-bold text-slate-900">
               {cantidad}
             </p>

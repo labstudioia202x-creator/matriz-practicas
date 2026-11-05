@@ -111,6 +111,15 @@ function LoginForm() {
           Regístrate
         </Link>
       </p>
+      <p className="mt-2 text-center text-sm text-slate-600">
+        ¿Eres estudiante?{" "}
+        <Link
+          href="/acceso-estudiante"
+          className="font-semibold text-primary hover:underline"
+        >
+          Entra con un código a tu correo
+        </Link>
+      </p>
     </div>
   );
 }

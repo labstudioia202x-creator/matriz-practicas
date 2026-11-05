@@ -30,8 +30,16 @@ export const ESTADOS = [
   "Aprobado",
 ] as const;
 
+// Paso de la práctica que reporta el estudiante en su portal. Es distinto de
+// ESTADOS, que es el resultado oficial que define el docente.
+export const AVANCES = ["Inicio", "En curso", "Finalizado"] as const;
+
 export const DOMINIO_UCOMPENSAR = "ucompensar.edu.co";
 
 export const PERIODO_SEGUIMIENTO = "2026 - 2";
 // Tope de tamaño por soporte subido a SharePoint.
 export const TAMANO_MAXIMO_SOPORTE_MB = 20;
+// En el portal del estudiante el tope es menor: Vercel corta el cuerpo de la
+// petición cerca de los 4.5 MB, y así el estudiante recibe un mensaje claro en
+// lugar de un error genérico.
+export const TAMANO_MAXIMO_PORTAL_MB = 4;

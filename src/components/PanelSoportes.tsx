@@ -3,6 +3,7 @@
 import { useActionState, useRef } from "react";
 import { Soporte } from "@/lib/types";
 import { TAMANO_MAXIMO_SOPORTE_MB } from "@/lib/constants";
+import { etiquetaSoporte, REQUISITOS_GUIA } from "@/lib/portal/guia";
 import {
   subirSoporte,
   eliminarSoporte,
@@ -24,6 +25,11 @@ function fechaLegible(iso: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function nombreDocumento(tipo: string | null): string {
+  const requisito = REQUISITOS_GUIA.find((r) => r.id === tipo);
+  return requisito ? `${etiquetaSoporte(requisito)} · ` : "";
 }
 
 export default function PanelSoportes({
@@ -59,7 +65,7 @@ export default function PanelSoportes({
         <h2 className="font-semibold text-slate-900">Subir soporte</h2>
         <input type="hidden" name="practicante_id" value={practicanteId} />
 
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div>
             <label
               htmlFor="archivo"
@@ -78,6 +84,30 @@ export default function PanelSoportes({
             <p className="mt-1 text-xs text-slate-400">
               Máximo {TAMANO_MAXIMO_SOPORTE_MB} MB por archivo.
             </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="tipo_documento"
+              className="block text-sm font-medium text-slate-700"
+            >
+              Documento de la guía{" "}
+              <span className="text-slate-400">(opcional)</span>
+            </label>
+            <select
+              id="tipo_documento"
+              name="tipo_documento"
+              defaultValue=""
+              disabled={!habilitado || subiendo}
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+            >
+              <option value="">Otro soporte</option>
+              {REQUISITOS_GUIA.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {etiquetaSoporte(r)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -168,6 +198,12 @@ export default function PanelSoportes({
                   </span>
                 )}
                 <p className="mt-0.5 text-xs text-slate-500">
+                  {s.subido_por === "estudiante" && (
+                    <span className="mr-1 rounded-full bg-teal-100 px-2 py-0.5 font-semibold text-teal-800">
+                      Subido por el estudiante
+                    </span>
+                  )}
+                  {nombreDocumento(s.tipo_documento)}
                   {s.descripcion ? `${s.descripcion} · ` : ""}
                   {tamanoLegible(s.tamano_bytes)} ·{" "}
                   {fechaLegible(s.subido_en)}

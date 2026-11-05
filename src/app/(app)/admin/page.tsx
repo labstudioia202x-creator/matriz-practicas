@@ -29,7 +29,7 @@ export default async function AdminPage() {
 
   const { data: practicantes, error } = await supabase
     .from("practicantes")
-    .select("*, docente:profiles!docente_id(full_name, email)")
+    .select("*, docente:profiles!docente_id(full_name, email), soportes(tipo_documento)")
     .order("created_at", { ascending: true });
 
   if (error) {
