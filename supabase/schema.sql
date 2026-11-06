@@ -72,9 +72,12 @@ alter table public.practicantes
 -- 3a) Crear perfil automáticamente cuando se registra un usuario en auth.users
 --     El rol NUNCA se toma de raw_user_meta_data: ese campo lo escribe el cliente
 --     al registrarse, así que cualquiera podría declararse administrador.
---     - Cuenta SIN contraseña cuyo correo está en la matriz: 'estudiante'. Las
---       crea el portal antes de enviar el código de acceso; solo se puede entrar
---       a ellas demostrando ser dueño del buzón.
+--     - Cuenta con un token vigente de accesos_estudiante y correo en la matriz:
+--       'estudiante'. Las crea el portal antes de enviar el código de acceso. No
+--       se puede saber por la contraseña: Supabase genera una aleatoria en las
+--       cuentas creadas desde el servidor. Tampoco por app_metadata o la
+--       confirmación, que se escriben después de insertar la fila. El metadato
+--       lo puede escribir el cliente, pero no conoce el token de la tabla.
 --     - Todo lo demás: 'docente' (el constraint exige correo @ucompensar.edu.co).
 --     - El admin se promueve aparte: ver scripts/setup-admin.mjs.
 create or replace function public.handle_new_user ()
@@ -87,7 +90,12 @@ declare
   v_nombre text;
   v_es_estudiante boolean := false;
 begin
-  if coalesce(new.encrypted_password, '') = '' then
+  if exists (
+    select 1 from public.accesos_estudiante a
+    where a.token::text = new.raw_user_meta_data ->> 'acceso_estudiante'
+      and a.correo = lower(btrim(new.email))
+      and a.creado_en > now() - interval '10 minutes'
+  ) then
     select p.nombre_completo, true
       into v_nombre, v_es_estudiante
     from public.practicantes p
@@ -527,6 +535,18 @@ alter table public.soportes
 --      archivo, con el id del formulario en tipo_documento.
 alter table public.practicantes
   add column if not exists formularios_diligenciados text[] not null default '{}';
+
+-- 10g) Tokens de un solo uso con los que el servidor le indica a handle_new_user
+--      que la cuenta la está creando el portal. Solo los toca la service_role.
+create table if not exists public.accesos_estudiante (
+  token uuid primary key,
+  correo text not null,
+  creado_en timestamptz not null default now()
+);
+
+alter table public.accesos_estudiante enable row level security;
+revoke all on public.accesos_estudiante from anon, authenticated;
+grant select, insert, delete on public.accesos_estudiante to service_role;
 
 -- Que la Data API vea de inmediato las columnas nuevas
 notify pgrst, 'reload schema';
