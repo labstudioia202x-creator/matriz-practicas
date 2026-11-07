@@ -1,10 +1,13 @@
 "use server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
+  AdjuntoCorreo,
   enviarPorFlujo,
   obtenerUrlFlujoComunicaciones,
 } from "@/lib/comunicaciones/flujo";
+import { validarImagenes } from "@/lib/comunicaciones/imagenes";
 import {
   CANALES,
   Canal,
@@ -31,13 +34,19 @@ export type ResultadoEnvio = {
 const TAMANO_MAXIMO_LOTE = 2;
 const ENVIOS_SIMULTANEOS = 4;
 
-/** Registra la comunicación y devuelve su id; el envío va en `enviarLote`. */
-export async function crearComunicacion(datos: {
-  asunto: string;
-  mensaje: string;
-  canales: Canal[];
-  practicanteIds: string[];
-}): Promise<{ id?: string; error?: string }> {
+/**
+ * Registra la comunicación con sus imágenes y devuelve su id; el envío va en
+ * `enviarLote`. Las imágenes llegan en un FormData (campo "imagenes").
+ */
+export async function crearComunicacion(
+  datos: {
+    asunto: string;
+    mensaje: string;
+    canales: Canal[];
+    practicanteIds: string[];
+  },
+  archivos?: FormData
+): Promise<{ id?: string; error?: string }> {
   const supabase = await createClient();
 
   const {
@@ -56,6 +65,18 @@ export async function crearComunicacion(datos: {
   const destinatarios = [...new Set(datos.practicanteIds)];
   if (destinatarios.length < 1) {
     return { error: "Selecciona al menos un estudiante." };
+  }
+
+  const imagenes = (archivos?.getAll("imagenes") ?? []).filter(
+    (a): a is File => a instanceof File
+  );
+  const errorImagenes = validarImagenes(imagenes);
+  if (errorImagenes) return { error: errorImagenes };
+  if (imagenes.length > 0 && !canales.includes("correo")) {
+    return {
+      error:
+        "Las imágenes solo se envían por correo: activa el canal de correo o quítalas.",
+    };
   }
 
   if (!(await obtenerUrlFlujoComunicaciones(user.id))) {
@@ -79,6 +100,33 @@ export async function crearComunicacion(datos: {
     .single();
 
   if (error) return { error: error.message };
+
+  if (imagenes.length > 0) {
+    const admin = createAdminClient();
+    const { error: errorAdjuntos } = await admin
+      .from("comunicacion_adjuntos")
+      .insert(
+        await Promise.all(
+          imagenes.map(async (imagen) => ({
+            comunicacion_id: data.id,
+            nombre: imagen.name,
+            tipo_mime: imagen.type,
+            tamano_bytes: imagen.size,
+            contenido_base64: Buffer.from(await imagen.arrayBuffer()).toString(
+              "base64"
+            ),
+          }))
+        )
+      );
+
+    if (errorAdjuntos) {
+      // Sin sus imágenes no se envía: se borra para que no quede en el
+      // historial como una comunicación pendiente.
+      await admin.from("comunicaciones").delete().eq("id", data.id);
+      return { error: `No se pudieron guardar las imágenes: ${errorAdjuntos.message}` };
+    }
+  }
+
   return { id: data.id };
 }
 
@@ -118,8 +166,12 @@ export async function enviarLote(
     return { error: "El flujo de comunicaciones ya no está configurado." };
   }
 
-  const [{ data: perfil }, { data: practicantes }, { data: previos }] =
-    await Promise.all([
+  const [
+    { data: perfil },
+    { data: practicantes },
+    { data: previos },
+    { data: imagenes, error: errorImagenes },
+  ] = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name, email")
@@ -136,7 +188,27 @@ export async function enviarLote(
         .eq("comunicacion_id", comunicacionId)
         .eq("estado", "enviado")
         .in("practicante_id", practicanteIds),
+      // La comunicación ya se comprobó arriba como del docente de la sesión.
+      createAdminClient()
+        .from("comunicacion_adjuntos")
+        .select("nombre, contenido_base64")
+        .eq("comunicacion_id", comunicacionId)
+        .order("creado_en", { ascending: true }),
     ]);
+
+  // Sin las imágenes es mejor no enviar que mandar el correo incompleto.
+  if (errorImagenes) {
+    return { error: `No se pudieron leer las imágenes: ${errorImagenes.message}` };
+  }
+
+  const adjuntos: AdjuntoCorreo[] = (imagenes ?? []).map((i) => ({
+    Name: i.nombre,
+    ContentBytes: i.contenido_base64,
+  }));
+  const notaTeams =
+    adjuntos.length > 0 && (comunicacion.canales as Canal[]).includes("correo")
+      ? `<p><em>Te envié ${adjuntos.length === 1 ? "una imagen adjunta" : `${adjuntos.length} imágenes adjuntas`} por correo.</em></p>`
+      : "";
 
   const docente = perfil?.full_name || perfil?.email || "";
   const yaEnviados = new Set(
@@ -178,14 +250,19 @@ export async function enviarLote(
 
       // En Teams no hay campo de asunto: va en negrita al inicio, con el
       // nombre del docente porque el remitente visible es el bot de flujo.
+      // Teams no admite adjuntos desde el bot de flujo: allí va solo un aviso.
       const mensajeHtml =
         canal === "teams"
-          ? `<p><strong>${escaparHtml(asunto)}</strong><br><em>De: ${escaparHtml(docente)}</em></p>${cuerpo}`
+          ? `<p><strong>${escaparHtml(asunto)}</strong><br><em>De: ${escaparHtml(docente)}</em></p>${cuerpo}${notaTeams}`
           : cuerpo;
+      const envio =
+        canal === "correo"
+          ? { canal, correo, asunto, mensajeHtml, adjuntos }
+          : { canal, correo, asunto, mensajeHtml };
 
       tareas.push(async () => {
         try {
-          await enviarPorFlujo(urlFlujo, { canal, correo, asunto, mensajeHtml });
+          await enviarPorFlujo(urlFlujo, envio);
           return { ...base, estado: "enviado", error: null };
         } catch (error) {
           return {

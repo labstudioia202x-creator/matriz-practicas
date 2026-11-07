@@ -160,7 +160,7 @@ export default async function ConfiguracionPage({
               con el disparador <b>Cuando se recibe una solicitud HTTP</b> y
               pega este esquema JSON:
               <code className="mt-1 block overflow-x-auto rounded bg-slate-50 p-2 text-xs">
-                {`{"type":"object","properties":{"canal":{"type":"string"},"correo":{"type":"string"},"asunto":{"type":"string"},"mensajeHtml":{"type":"string"}}}`}
+                {`{"type":"object","properties":{"canal":{"type":"string"},"correo":{"type":"string"},"asunto":{"type":"string"},"mensajeHtml":{"type":"string"},"adjuntos":{"type":"array","items":{"type":"object","properties":{"Name":{"type":"string"},"ContentBytes":{"type":"string"}}}}}}`}
               </code>
             </li>
             <li>
@@ -179,6 +179,16 @@ export default async function ConfiguracionPage({
               electrónico (V2)</b>. <i>Para</i>: <code>correo</code>;{" "}
               <i>Asunto</i>: <code>asunto</code>; <i>Cuerpo</i>:{" "}
               <code>mensajeHtml</code>. El correo sale desde tu buzón.
+            </li>
+            <li>
+              Para las imágenes adjuntas: en esa misma acción abre{" "}
+              <b>Mostrar todo</b>, busca <i>Datos adjuntos</i>, usa el botón para
+              cambiar a <b>matriz completa</b> y pon esta expresión:
+              <code className="mt-1 block overflow-x-auto rounded bg-slate-50 p-2 text-xs">
+                coalesce(triggerBody()?[&#39;adjuntos&#39;], json(&#39;[]&#39;))
+              </code>
+              Si ya tenías el flujo, actualiza también el esquema del paso 1. Sin
+              este paso los correos salen, pero sin las imágenes.
             </li>
             <li>
               Después de la condición agrega la acción <b>Respuesta</b> con

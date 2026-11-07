@@ -43,3 +43,7 @@ export const TAMANO_MAXIMO_SOPORTE_MB = 20;
 // petición cerca de los 4.5 MB, y así el estudiante recibe un mensaje claro en
 // lugar de un error genérico.
 export const TAMANO_MAXIMO_PORTAL_MB = 4;
+// Imágenes adjuntas a una comunicación: todas viajan en una sola petición al
+// crearla, así que el total debe caber bajo el mismo tope de Vercel.
+export const MAXIMO_IMAGENES_COMUNICACION = 3;
+export const TAMANO_MAXIMO_IMAGENES_MB = 3;

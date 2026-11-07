@@ -52,12 +52,25 @@ export async function obtenerUrlFlujoComunicaciones(
 }
 
 /**
+ * Adjunto con la forma que espera "Enviar un correo (V2)" de Outlook, para que
+ * el flujo lo pase tal cual al campo Datos adjuntos.
+ */
+export type AdjuntoCorreo = { Name: string; ContentBytes: string };
+
+/**
  * Envía UN mensaje (un estudiante, un canal). El flujo decide con `canal` si
- * publica en Teams o manda el correo, y responde 200 al terminar.
+ * publica en Teams o manda el correo, y responde 200 al terminar. Los adjuntos
+ * solo van en el correo.
  */
 export async function enviarPorFlujo(
   urlFlujo: string,
-  mensaje: { canal: Canal; correo: string; asunto: string; mensajeHtml: string }
+  mensaje: {
+    canal: Canal;
+    correo: string;
+    asunto: string;
+    mensajeHtml: string;
+    adjuntos?: AdjuntoCorreo[];
+  }
 ): Promise<void> {
   let respuesta: Response;
 

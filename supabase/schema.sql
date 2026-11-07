@@ -473,6 +473,28 @@ create policy "envio_docente_actualizar"
   on public.comunicacion_envios for update
   using (docente_id = auth.uid());
 
+-- 9d) Imágenes adjuntas a una comunicación. Se guardan para que "Reintentar
+--     fallidos" y "Enviar a los que faltan" las vuelvan a mandar. Van como
+--     adjuntos del correo (el chat de Teams del bot de flujo no los admite).
+--     Solo el servidor las toca: comprueba antes que la comunicación sea del
+--     docente de la sesión.
+create table if not exists public.comunicacion_adjuntos (
+  id uuid primary key default gen_random_uuid(),
+  comunicacion_id uuid not null references public.comunicaciones (id) on delete cascade,
+  nombre text not null,
+  tipo_mime text not null,
+  tamano_bytes integer not null,
+  contenido_base64 text not null,
+  creado_en timestamptz not null default now()
+);
+
+create index if not exists comunicacion_adjuntos_comunicacion_idx
+  on public.comunicacion_adjuntos (comunicacion_id);
+
+alter table public.comunicacion_adjuntos enable row level security;
+revoke all on public.comunicacion_adjuntos from anon, authenticated;
+grant select, insert, delete on public.comunicacion_adjuntos to service_role;
+
 -- ----------------------------------------------------------------------------
 -- 10) PORTAL DEL ESTUDIANTE
 --    El estudiante entra con un código enviado a su correo, completa los datos

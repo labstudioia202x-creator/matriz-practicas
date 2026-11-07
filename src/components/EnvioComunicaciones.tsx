@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Practicante } from "@/lib/types";
-import { PRACTICAS, ESTADOS } from "@/lib/constants";
+import {
+  ESTADOS,
+  MAXIMO_IMAGENES_COMUNICACION,
+  PRACTICAS,
+  TAMANO_MAXIMO_IMAGENES_MB,
+} from "@/lib/constants";
+import { ACCEPT_IMAGENES, validarImagenes } from "@/lib/comunicaciones/imagenes";
 import {
   CANALES,
   Canal,
@@ -47,6 +53,18 @@ export default function EnvioComunicaciones({
   const [asunto, setAsunto] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [idVistaPrevia, setIdVistaPrevia] = useState("");
+  const [imagenes, setImagenes] = useState<File[]>([]);
+  const [errorImagenes, setErrorImagenes] = useState<string | null>(null);
+
+  // Miniaturas locales: se liberan al cambiar la lista o al salir.
+  const miniaturas = useMemo(
+    () => imagenes.map((imagen) => URL.createObjectURL(imagen)),
+    [imagenes]
+  );
+  useEffect(
+    () => () => miniaturas.forEach((url) => URL.revokeObjectURL(url)),
+    [miniaturas]
+  );
 
   const [enviando, setEnviando] = useState(false);
   const [progreso, setProgreso] = useState({ hechos: 0, total: 0 });
@@ -113,6 +131,18 @@ export default function EnvioComunicaciones({
     });
   }
 
+  function agregarImagenes(nuevas: File[]) {
+    const lista = [...imagenes, ...nuevas];
+    const problema = validarImagenes(lista);
+    setErrorImagenes(problema);
+    if (!problema) setImagenes(lista);
+  }
+
+  function quitarImagen(indice: number) {
+    setErrorImagenes(null);
+    setImagenes((actuales) => actuales.filter((_, i) => i !== indice));
+  }
+
   // Inserta la variable donde está el cursor del mensaje
   function insertarVariable(clave: string) {
     const campo = mensajeRef.current;
@@ -153,13 +183,17 @@ export default function EnvioComunicaciones({
   async function enviar() {
     setError(null);
 
+    const conImagenes =
+      imagenes.length > 0
+        ? ` con ${imagenes.length === 1 ? "1 imagen adjunta" : `${imagenes.length} imágenes adjuntas`} en el correo`
+        : "";
     if (
       !confirm(
         `Se enviará "${asunto.trim()}" a ${seleccionados.length} estudiante(s) por ${[
           ...canales,
         ]
           .map((c) => ETIQUETA_CANAL[c])
-          .join(" y ")}. ¿Continuar?`
+          .join(" y ")}${conImagenes}. ¿Continuar?`
       )
     ) {
       return;
@@ -168,12 +202,18 @@ export default function EnvioComunicaciones({
     setEnviando(true);
     setResultados([]);
     try {
-      const creada = await crearComunicacion({
-        asunto,
-        mensaje,
-        canales: [...canales],
-        practicanteIds: seleccionados.map((p) => p.id),
-      });
+      const archivos = new FormData();
+      for (const imagen of imagenes) archivos.append("imagenes", imagen);
+
+      const creada = await crearComunicacion(
+        {
+          asunto,
+          mensaje,
+          canales: [...canales],
+          practicanteIds: seleccionados.map((p) => p.id),
+        },
+        archivos
+      );
       if (!creada.id) {
         setError(creada.error ?? "No se pudo crear la comunicación.");
         return;
@@ -213,13 +253,15 @@ export default function EnvioComunicaciones({
   }
 
   const fallidos = resultados.filter((r) => r.estado === "fallido").length;
+  const imagenesSinCorreo = imagenes.length > 0 && !canales.has("correo");
   const puedeEnviar =
     habilitado &&
     !enviando &&
     seleccionados.length > 0 &&
     canales.size > 0 &&
     asunto.trim() !== "" &&
-    mensaje.trim() !== "";
+    mensaje.trim() !== "" &&
+    !imagenesSinCorreo;
 
   if (practicantes.length === 0) {
     return (
@@ -387,6 +429,90 @@ export default function EnvioComunicaciones({
           className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
         />
 
+        {/* Imágenes */}
+        <div className="mt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-slate-700">
+              Imágenes{" "}
+              <span className="font-normal text-slate-500">(opcional)</span>
+            </p>
+            <label
+              className={`cursor-pointer rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5 ${
+                imagenes.length >= MAXIMO_IMAGENES_COMUNICACION || enviando
+                  ? "pointer-events-none opacity-50"
+                  : ""
+              }`}
+            >
+              Adjuntar imágenes
+              <input
+                type="file"
+                multiple
+                accept={ACCEPT_IMAGENES}
+                disabled={imagenes.length >= MAXIMO_IMAGENES_COMUNICACION || enviando}
+                onChange={(e) => {
+                  agregarImagenes(Array.from(e.target.files ?? []));
+                  // Permite volver a elegir el mismo archivo después de quitarlo.
+                  e.target.value = "";
+                }}
+                className="sr-only"
+              />
+            </label>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Hasta {MAXIMO_IMAGENES_COMUNICACION} imágenes JPG, PNG, GIF o WEBP,
+            máximo {TAMANO_MAXIMO_IMAGENES_MB} MB en total. Van como adjuntos del
+            correo; en Teams el estudiante recibe un aviso de que están en su
+            correo.
+          </p>
+
+          {imagenes.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2" aria-label="Imágenes adjuntas">
+              {imagenes.map((imagen, i) => (
+                <li
+                  key={`${imagen.name}-${i}`}
+                  className="flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1.5 pr-2"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- miniatura local (blob:), no pasa por el optimizador */}
+                  <img
+                    src={miniaturas[i]}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded object-cover"
+                  />
+                  <span className="min-w-0">
+                    <span className="block max-w-[160px] truncate text-xs font-medium text-slate-800">
+                      {imagen.name}
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      {(imagen.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => quitarImagen(i)}
+                    disabled={enviando}
+                    aria-label={`Quitar ${imagen.name}`}
+                    className="ml-1 rounded px-1.5 text-sm font-bold text-slate-500 hover:bg-slate-200 hover:text-slate-800"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {errorImagenes && (
+            <p role="alert" className="mt-2 rounded-lg border border-red-300 bg-red-50 p-2 text-xs text-red-700">
+              {errorImagenes}
+            </p>
+          )}
+          {imagenesSinCorreo && (
+            <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+              Las imágenes solo se envían por correo: activa “Correo
+              electrónico” o quítalas.
+            </p>
+          )}
+        </div>
+
         {/* Vista previa */}
         {vistaPrevia && (asunto || mensaje) && (
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -415,6 +541,11 @@ export default function EnvioComunicaciones({
                 __html: textoAHtml(personalizar(mensaje, vistaPrevia, docente)),
               }}
             />
+            {imagenes.length > 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                + {imagenes.length === 1 ? "1 imagen adjunta" : `${imagenes.length} imágenes adjuntas`} en el correo
+              </p>
+            )}
           </div>
         )}
 

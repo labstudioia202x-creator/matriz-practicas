@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { Comunicacion, ComunicacionEnvio, Practicante } from "@/lib/types";
 import { ETIQUETA_CANAL } from "@/lib/comunicaciones/plantilla";
@@ -52,6 +53,26 @@ export default async function ComunicacionesPage() {
           historial.map((c) => c.id)
         )
     : { data: [] };
+
+  // Las imágenes solo las lee el servidor; los ids ya vienen filtrados por RLS
+  // a las comunicaciones del docente.
+  const { data: adjuntos } = historial.length
+    ? await createAdminClient()
+        .from("comunicacion_adjuntos")
+        .select("comunicacion_id")
+        .in(
+          "comunicacion_id",
+          historial.map((c) => c.id)
+        )
+    : { data: [] };
+
+  const imagenesPorComunicacion = new Map<string, number>();
+  for (const a of adjuntos ?? []) {
+    imagenesPorComunicacion.set(
+      a.comunicacion_id,
+      (imagenesPorComunicacion.get(a.comunicacion_id) ?? 0) + 1
+    );
+  }
 
   const enviosPorComunicacion = new Map<string, ComunicacionEnvio[]>();
   for (const e of (envios ?? []) as ComunicacionEnvio[]) {
@@ -131,6 +152,10 @@ export default async function ComunicacionesPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     {c.total_destinatarios} estudiantes ·{" "}
                     {c.canales.map((canal) => ETIQUETA_CANAL[canal]).join(" + ")}{" "}
+                    {imagenesPorComunicacion.has(c.id) &&
+                      `· ${imagenesPorComunicacion.get(c.id)} ${
+                        imagenesPorComunicacion.get(c.id) === 1 ? "imagen" : "imágenes"
+                      } `}
                     · <span className="text-green-700">{cuenta("enviado")} enviados</span>
                     {cuenta("fallido") > 0 && (
                       <span className="text-red-700"> · {cuenta("fallido")} fallidos</span>
