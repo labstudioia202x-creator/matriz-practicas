@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { calcularCompletitud } from "@/lib/portal/guia";
+import {
+  calcularCompletitud,
+  etiquetaSoporte,
+  REQUISITOS_GUIA,
+} from "@/lib/portal/guia";
 import { correoDeLaSesion, practicasDelCorreo } from "@/lib/portal/sesion";
 import { createClient } from "@/lib/supabase/server";
 import FormularioDatos from "@/components/portal/FormularioDatos";
@@ -51,9 +55,8 @@ export default async function MiPracticaPage({
   const [{ data: soportes }, { data: docente }] = await Promise.all([
     admin
       .from("soportes")
-      .select("id, tipo_documento, nombre_archivo, subido_en")
+      .select("id, tipo_documento, nombre_archivo, subido_en, subido_por")
       .eq("practicante_id", practica.id)
-      .not("tipo_documento", "is", null)
       .order("subido_en", { ascending: false }),
     admin
       .from("profiles")
@@ -64,17 +67,39 @@ export default async function MiPracticaPage({
 
   // La fecha se formatea aquí, en una sola zona horaria: si lo hiciera el
   // componente de cliente, servidor (UTC) y navegador podrían no coincidir.
-  const documentos: DocumentoEntregado[] = (soportes ?? []).map((s) => ({
-    id: s.id,
-    tipo_documento: s.tipo_documento as string,
-    nombre_archivo: s.nombre_archivo,
-    fecha: new Date(s.subido_en).toLocaleDateString("es-CO", {
+  const fechaCorta = (iso: string) =>
+    new Date(iso).toLocaleDateString("es-CO", {
       day: "2-digit",
       month: "short",
       year: "numeric",
       timeZone: "America/Bogota",
-    }),
-  }));
+    });
+  const todos = soportes ?? [];
+
+  // Lo que cuenta para la guía: solo los archivos marcados con un requisito.
+  const documentos: DocumentoEntregado[] = todos
+    .filter((s) => s.tipo_documento)
+    .map((s) => ({
+      id: s.id,
+      tipo_documento: s.tipo_documento as string,
+      nombre_archivo: s.nombre_archivo,
+      fecha: fechaCorta(s.subido_en),
+    }));
+
+  // Todo lo que hay en su carpeta, incluidos los soportes que el docente subió
+  // antes del portal o sin indicar a qué requisito corresponden. La descripción
+  // no se muestra: la escribe el docente y puede llevar notas internas.
+  const archivos: ArchivoPractica[] = todos.map((s) => {
+    const requisito = REQUISITOS_GUIA.find((r) => r.id === s.tipo_documento);
+    return {
+      id: s.id,
+      nombre: s.nombre_archivo,
+      corresponde: requisito ? etiquetaSoporte(requisito) : "Otro documento",
+      subidoPor:
+        s.subido_por === "estudiante" ? "Subido por ti" : "Subido por tu docente",
+      fecha: fechaCorta(s.subido_en),
+    };
+  });
   const completitud = calcularCompletitud(practica, documentos);
 
   return (
@@ -134,6 +159,8 @@ export default async function MiPracticaPage({
         datosCompletos={completitud.datos.hechos === completitud.datos.total}
       />
 
+      <ListaArchivos archivos={archivos} />
+
       <FormularioDatos key={`datos-${practica.id}`} practica={practica} />
 
       <p className="mt-6 text-xs text-slate-500">
@@ -149,5 +176,46 @@ function Indicador({ etiqueta, valor }: { etiqueta: string; valor: string }) {
       <dt className="text-xs text-slate-500">{etiqueta}</dt>
       <dd className="mt-1 text-sm font-bold text-slate-900 sm:text-lg">{valor}</dd>
     </div>
+  );
+}
+
+type ArchivoPractica = {
+  id: string;
+  nombre: string;
+  corresponde: string;
+  subidoPor: string;
+  fecha: string;
+};
+
+function ListaArchivos({ archivos }: { archivos: ArchivoPractica[] }) {
+  return (
+    <section aria-labelledby="titulo-archivos" className="mt-8">
+      <h2 id="titulo-archivos" className="text-lg font-bold text-slate-900">
+        Tus documentos
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Todo lo que está guardado en tu carpeta de prácticas, lo hayas subido tú o
+        tu docente.
+      </p>
+
+      {archivos.length === 0 ? (
+        <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+          Aún no hay documentos en tu carpeta.
+        </p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+          {archivos.map((a) => (
+            <li key={a.id} className="p-3 sm:px-4">
+              <p className="break-words text-sm font-medium text-slate-900">
+                {a.nombre}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {a.corresponde} · {a.subidoPor} · {a.fecha}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
