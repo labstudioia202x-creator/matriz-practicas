@@ -67,6 +67,7 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 
 ## Base de datos (Supabase)
 
+- **Tope de 1.000 filas**: la API de Supabase devuelve como máximo 1.000 filas por consulta y corta el resto sin error. Incidente nov 2026: el historial de `/comunicaciones` leía todos los envíos de 15 comunicaciones (1.162 filas), mostraba como "sin enviar" lo que sí había salido, y "Enviar a los que faltan" no hacía nada porque el servidor ya los tenía como enviados. Toda consulta que pueda pasar de 1.000 filas debe paginarse con `.range()` (ver `comunicaciones/page.tsx`). En nov 2026 las demás tablas estaban lejos: 134 practicantes, 139 soportes.
 - `supabase/schema.sql` es idempotente; los cambios de esquema se aplican volviendo a ejecutarlo completo en el SQL Editor (incluye ALTER `add column if not exists practica`).
 - `.env.local` (NO versionado) requiere: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable), `SUPABASE_SERVICE_ROLE_KEY` (secret: setup-admin, flujos y portal del estudiante; también en Vercel).
 - Los roles nunca salen de los metadatos del usuario ni los puede cambiar él mismo: la sesión solo puede actualizar las columnas de `profiles` listadas en la sección 10 de `schema.sql`. Si la app empieza a escribir otra columna de `profiles` con la sesión del usuario, hay que agregarla ahí.

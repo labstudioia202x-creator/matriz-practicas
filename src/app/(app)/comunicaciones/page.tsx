@@ -44,15 +44,41 @@ export default async function ComunicacionesPage() {
 
   const historial = (comunicaciones ?? []) as Comunicacion[];
 
-  const { data: envios } = historial.length
-    ? await supabase
+  // La API de Supabase devuelve como máximo 1.000 filas por consulta y corta el
+  // resto sin avisar. Con 15 comunicaciones de ~90 envíos se pasaba del tope y
+  // el historial mostraba como "sin enviar" lo que sí había salido; por eso se
+  // leen por páginas hasta tenerlos todos.
+  const envios: ComunicacionEnvio[] = [];
+  let historialIncompleto = false;
+  if (historial.length) {
+    const POR_PAGINA = 1000;
+    let total: number | null = null;
+    // Avanza según lo que llegó (no según POR_PAGINA): si el tope del servidor
+    // fuera menor, no se salta filas.
+    while (total === null || envios.length < total) {
+      const { data, error, count } = await supabase
         .from("comunicacion_envios")
-        .select("comunicacion_id, practicante_id, nombre, canal, estado, error")
+        .select(
+          "id, comunicacion_id, practicante_id, nombre, canal, estado, error",
+          { count: "exact" }
+        )
         .in(
           "comunicacion_id",
           historial.map((c) => c.id)
         )
-    : { data: [] };
+        .order("id")
+        .range(envios.length, envios.length + POR_PAGINA - 1);
+
+      if (error || count === null) {
+        console.error("No se pudo leer el historial de envíos:", error?.message);
+        historialIncompleto = true;
+        break;
+      }
+      total = count;
+      if (!data?.length) break;
+      envios.push(...(data as ComunicacionEnvio[]));
+    }
+  }
 
   // Las imágenes solo las lee el servidor; los ids ya vienen filtrados por RLS
   // a las comunicaciones del docente.
@@ -75,7 +101,7 @@ export default async function ComunicacionesPage() {
   }
 
   const enviosPorComunicacion = new Map<string, ComunicacionEnvio[]>();
-  for (const e of (envios ?? []) as ComunicacionEnvio[]) {
+  for (const e of envios) {
     const lista = enviosPorComunicacion.get(e.comunicacion_id) ?? [];
     lista.push(e);
     enviosPorComunicacion.set(e.comunicacion_id, lista);
@@ -112,6 +138,13 @@ export default async function ComunicacionesPage() {
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-slate-900">Historial</h2>
+        {historialIncompleto && (
+          <p role="alert" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+            No se pudo cargar el estado completo de los envíos, así que los
+            conteos pueden estar incompletos. Recarga la página antes de
+            reenviar algo.
+          </p>
+        )}
         {historial.length === 0 ? (
           <p className="mt-2 text-sm text-slate-500">
             Aún no has enviado comunicaciones.
