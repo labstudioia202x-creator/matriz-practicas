@@ -20,7 +20,9 @@ export async function enviarPorLotes(
     let respuesta: Awaited<ReturnType<typeof enviarLote>>;
     try {
       respuesta = await enviarLote(comunicacionId, lote);
-    } catch {
+    } catch (error) {
+      // Queda en la consola del navegador (F12) para diagnosticar el corte.
+      console.error("Falló el lote de comunicaciones:", error);
       return `El envío se interrumpió después de ${procesados} de ${ids.length} estudiantes. Lo enviado quedó registrado: usa "Enviar a los que faltan" en el historial.`;
     }
 

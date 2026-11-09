@@ -72,6 +72,7 @@ export default function EnvioComunicaciones({
   const [resultados, setResultados] = useState<ResultadoEnvio[]>([]);
   const [comunicacionId, setComunicacionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
   useAvisoAlSalir(enviando);
 
   const filtrados = useMemo(() => {
@@ -182,25 +183,22 @@ export default function EnvioComunicaciones({
     if (fallo) setError(fallo);
   }
 
+  // La confirmación va dentro de la página y no con `confirm()`: si el
+  // navegador bloquea sus cuadros de diálogo, `confirm()` devuelve false sin
+  // mostrar nada y el botón parecía no hacer nada.
+  const resumenEnvio = `Se enviará "${asunto.trim()}" a ${seleccionados.length} estudiante(s) por ${[
+    ...canales,
+  ]
+    .map((c) => ETIQUETA_CANAL[c])
+    .join(" y ")}${
+    imagenes.length > 0
+      ? ` con ${imagenes.length === 1 ? "1 imagen adjunta" : `${imagenes.length} imágenes adjuntas`} en el correo`
+      : ""
+  }. ¿Continuar?`;
+
   async function enviar() {
+    setConfirmando(false);
     setError(null);
-
-    const conImagenes =
-      imagenes.length > 0
-        ? ` con ${imagenes.length === 1 ? "1 imagen adjunta" : `${imagenes.length} imágenes adjuntas`} en el correo`
-        : "";
-    if (
-      !confirm(
-        `Se enviará "${asunto.trim()}" a ${seleccionados.length} estudiante(s) por ${[
-          ...canales,
-        ]
-          .map((c) => ETIQUETA_CANAL[c])
-          .join(" y ")}${conImagenes}. ¿Continuar?`
-      )
-    ) {
-      return;
-    }
-
     setEnviando(true);
     setResultados([]);
     try {
@@ -559,14 +557,36 @@ export default function EnvioComunicaciones({
 
         <button
           type="button"
-          onClick={enviar}
-          disabled={!puedeEnviar}
+          onClick={() => setConfirmando(true)}
+          disabled={!puedeEnviar || confirmando}
           className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
         >
           {enviando
             ? `Enviando… ${progreso.hechos} de ${progreso.total}`
             : `Enviar a ${seleccionados.length} estudiante(s)`}
         </button>
+
+        {confirmando && puedeEnviar && (
+          <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+            <p className="font-medium text-slate-800">{resumenEnvio}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={enviar}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark"
+              >
+                Sí, enviar
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmando(false)}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         {enviando && progreso.total > 0 && (
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
