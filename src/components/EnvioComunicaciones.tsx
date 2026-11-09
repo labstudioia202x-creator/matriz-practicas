@@ -9,6 +9,7 @@ import {
   PRACTICAS,
   TAMANO_MAXIMO_IMAGENES_MB,
 } from "@/lib/constants";
+import { useAvisoAlSalir } from "@/lib/comunicaciones/avisoAlSalir";
 import { ACCEPT_IMAGENES, validarImagenes } from "@/lib/comunicaciones/imagenes";
 import {
   CANALES,
@@ -71,6 +72,7 @@ export default function EnvioComunicaciones({
   const [resultados, setResultados] = useState<ResultadoEnvio[]>([]);
   const [comunicacionId, setComunicacionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useAvisoAlSalir(enviando);
 
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
@@ -573,6 +575,12 @@ export default function EnvioComunicaciones({
               style={{ width: `${(progreso.hechos / progreso.total) * 100}%` }}
             />
           </div>
+        )}
+        {enviando && (
+          <p role="status" className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
+            No cierres ni recargues esta página hasta que termine: el envío se
+            hace desde aquí y se detendría.
+          </p>
         )}
       </section>
 

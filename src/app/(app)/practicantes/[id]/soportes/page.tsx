@@ -5,6 +5,7 @@ import { Practicante, Soporte } from "@/lib/types";
 import { sanitizarNombre } from "@/lib/microsoft/graph";
 import PanelSoportes from "@/components/PanelSoportes";
 import { AvanceBadge } from "@/components/IndicadoresPortal";
+import CambiarAvance from "@/components/CambiarAvance";
 import {
   calcularCompletitud,
   estadoRequisito,
@@ -96,7 +97,7 @@ export default async function SoportesPage({
           </span>
           {p.avance_actualizado_en && (
             <span className="text-xs text-slate-500">
-              Reportado el{" "}
+              Actualizado el{" "}
               {new Date(p.avance_actualizado_en).toLocaleDateString("es-CO", {
                 day: "2-digit",
                 month: "short",
@@ -105,6 +106,13 @@ export default async function SoportesPage({
               })}
             </span>
           )}
+        </div>
+        <div className="mt-2">
+          <CambiarAvance practicanteId={p.id} avance={p.avance} />
+          <p className="mt-1 text-xs text-slate-500">
+            El estudiante lo reporta desde su portal; aquí puedes corregirlo. Él
+            también podrá volver a cambiarlo.
+          </p>
         </div>
         <div className="mt-3 grid gap-4 border-t border-slate-100 pt-3 md:grid-cols-3">
           {PASOS_GUIA.map((paso) => (

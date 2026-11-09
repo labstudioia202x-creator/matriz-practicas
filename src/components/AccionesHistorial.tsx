@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAvisoAlSalir } from "@/lib/comunicaciones/avisoAlSalir";
 import { enviarPorLotes } from "@/lib/comunicaciones/lotes";
 
 /**
@@ -21,6 +22,7 @@ export default function AccionesHistorial({
   const router = useRouter();
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useAvisoAlSalir(progreso !== null);
 
   async function ejecutar(ids: string[], pregunta: string) {
     if (!confirm(pregunta)) return;
@@ -38,8 +40,11 @@ export default function AccionesHistorial({
 
   if (progreso) {
     return (
-      <p className="mt-2 text-xs font-medium text-primary">
-        Enviando… {progreso.hechos} de {progreso.total}
+      <p role="status" className="mt-2 text-xs font-medium text-primary">
+        Enviando… {progreso.hechos} de {progreso.total}.{" "}
+        <span className="text-amber-800">
+          No cierres ni recargues esta página hasta que termine.
+        </span>
       </p>
     );
   }

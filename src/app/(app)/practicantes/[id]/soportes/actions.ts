@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { TAMANO_MAXIMO_SOPORTE_MB } from "@/lib/constants";
+import { AVANCES, TAMANO_MAXIMO_SOPORTE_MB } from "@/lib/constants";
 import { obtenerAccessToken } from "@/lib/microsoft/conexion";
 import { eliminarArchivo, sanitizarNombre } from "@/lib/microsoft/graph";
 import { subirADestinoDelDocente } from "@/lib/soportes/subir";
@@ -14,6 +14,57 @@ export type SoporteState = { error?: string; ok?: string } | undefined;
 const EXTENSIONES_BLOQUEADAS = [
   ".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jar",
 ];
+
+/**
+ * El docente corrige el avance que reportó el estudiante. A diferencia del
+ * portal, no exige la tercera entrega para "Finalizado": la decisión es suya.
+ * Vacío = "Sin reportar".
+ */
+export async function cambiarAvance(
+  state: SoporteState,
+  formData: FormData
+): Promise<SoporteState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+  }
+
+  const practicanteId = String(formData.get("practicante_id") ?? "");
+  const valor = String(formData.get("avance") ?? "");
+  const avance = AVANCES.find((a) => a === valor) ?? null;
+
+  if (valor && !avance) return { error: "Elige un avance válido." };
+
+  const { data: practicante } = await supabase
+    .from("practicantes")
+    .select("id, docente_id")
+    .eq("id", practicanteId)
+    .maybeSingle();
+
+  if (!practicante || practicante.docente_id !== user.id) {
+    return { error: "No tienes permiso sobre este practicante." };
+  }
+
+  const { error } = await supabase
+    .from("practicantes")
+    .update({
+      avance,
+      avance_actualizado_en: avance ? new Date().toISOString() : null,
+    })
+    .eq("id", practicanteId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/practicantes/${practicanteId}/soportes`);
+  revalidatePath("/practicantes");
+  revalidatePath("/dashboard");
+  return { ok: avance ? `Avance cambiado a "${avance}".` : "Avance quitado." };
+}
 
 export async function subirSoporte(
   state: SoporteState,
