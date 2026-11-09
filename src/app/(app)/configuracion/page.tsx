@@ -172,7 +172,11 @@ export default async function ConfiguracionPage({
               chat o canal</b>. <i>Publicar como</i>: <b>Bot de flujo</b>;{" "}
               <i>Publicar en</i>: <b>Chat con el bot de flujo</b>;{" "}
               <i>Destinatario</i>: la ficha <code>correo</code>;{" "}
-              <i>Mensaje</i>: la ficha <code>mensajeHtml</code>.
+              <i>Mensaje</i>: la ficha <code>mensajeHtml</code>. En la{" "}
+              <b>Configuración</b> de esa acción pon la <b>Directiva de
+              reintentos</b> en <b>Ninguna</b>: si Microsoft frena un mensaje,
+              falla de inmediato y queda para “Reintentar fallidos”, en vez de
+              quedarse esperando minutos y salir duplicado.
             </li>
             <li>
               En <b>Falso</b>: <b>Office 365 Outlook → Enviar un correo
@@ -204,7 +208,8 @@ export default async function ConfiguracionPage({
             En Teams el remitente visible es el bot de flujo (Workflows); por
             eso el mensaje incluye el asunto y tu nombre al inicio. Solo llega a
             correos @ucompensar.edu.co; a los demás se les envía solo el
-            correo.
+            correo. Microsoft deja que el bot mande 25 mensajes cada 5 minutos:
+            con más estudiantes la aplicación hace pausas y sigue sola.
           </p>
         </details>
       </section>

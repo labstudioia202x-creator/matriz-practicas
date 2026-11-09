@@ -81,7 +81,9 @@ export async function enviarPorFlujo(
       body: JSON.stringify(mensaje),
       cache: "no-store",
       // Con el lote de 4 llamadas en paralelo, 30 s deja margen bajo los 60 s
-      // de la función. Un flujo que reintenta Teams puede tardar más que eso.
+      // de la función. Si la acción de Teams del flujo tiene reintentos, ante
+      // el límite de Microsoft espera minutos y se pasa de esto: por eso se
+      // pide la directiva de reintentos "Ninguna".
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
@@ -95,7 +97,7 @@ export async function enviarPorFlujo(
   if (respuesta.status === 502) {
     throw new FlujoComunicacionesError(
       mensaje.canal === "teams"
-        ? "El flujo no pudo publicar en Teams (¿el correo pertenece a una cuenta de Teams de la universidad?)."
+        ? "El flujo no pudo publicar en Teams. Si fue el límite de Microsoft (25 mensajes del bot cada 5 minutos), usa “Reintentar fallidos” en 5 minutos; si vuelve a fallar, revisa que el correo tenga cuenta de Teams en la universidad."
         : "El flujo no pudo enviar el correo. Revisa su historial de ejecuciones."
     );
   }

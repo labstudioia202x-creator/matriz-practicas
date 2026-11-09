@@ -10,6 +10,7 @@ import {
   TAMANO_MAXIMO_IMAGENES_MB,
 } from "@/lib/constants";
 import { useAvisoAlSalir } from "@/lib/comunicaciones/avisoAlSalir";
+import { minutosParaTeams } from "@/lib/comunicaciones/cupoTeams";
 import { ACCEPT_IMAGENES, validarImagenes } from "@/lib/comunicaciones/imagenes";
 import {
   CANALES,
@@ -25,7 +26,8 @@ import {
   crearComunicacion,
   ResultadoEnvio,
 } from "@/app/(app)/comunicaciones/actions";
-import { enviarPorLotes } from "@/lib/comunicaciones/lotes";
+import { enviarPorLotes, PausaTeams } from "@/lib/comunicaciones/lotes";
+import AvisoPausaTeams from "@/components/AvisoPausaTeams";
 
 const coloresEstado: Record<ResultadoEnvio["estado"], string> = {
   enviado: "bg-green-100 text-green-800",
@@ -73,6 +75,7 @@ export default function EnvioComunicaciones({
   const [comunicacionId, setComunicacionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [pausa, setPausa] = useState<PausaTeams | null>(null);
   useAvisoAlSalir(enviando);
 
   const filtrados = useMemo(() => {
@@ -98,6 +101,14 @@ export default function EnvioComunicaciones({
         (p) =>
           correoValido(p.correo_electronico) && !admiteTeams(p.correo_electronico)
       ).length
+    : 0;
+  const minutosTeams = canales.has("teams")
+    ? minutosParaTeams(
+        seleccionados.filter(
+          (p) =>
+            correoValido(p.correo_electronico) && admiteTeams(p.correo_electronico)
+        ).length
+      )
     : 0;
 
   const vistaPrevia =
@@ -178,7 +189,7 @@ export default function EnvioComunicaciones({
         ...nuevos,
       ]);
       setProgreso({ hechos: procesados, total: ids.length });
-    });
+    }, setPausa);
 
     if (fallo) setError(fallo);
   }
@@ -194,7 +205,11 @@ export default function EnvioComunicaciones({
     imagenes.length > 0
       ? ` con ${imagenes.length === 1 ? "1 imagen adjunta" : `${imagenes.length} imágenes adjuntas`} en el correo`
       : ""
-  }. ¿Continuar?`;
+  }.${
+    minutosTeams > 0
+      ? ` Tardará al menos ${minutosTeams} minutos, porque Teams solo admite 25 mensajes del bot cada 5 minutos: deja la página abierta.`
+      : ""
+  } ¿Continuar?`;
 
   async function enviar() {
     setConfirmando(false);
@@ -596,6 +611,7 @@ export default function EnvioComunicaciones({
             />
           </div>
         )}
+        {enviando && pausa && <AvisoPausaTeams key={pausa.hasta} pausa={pausa} />}
         {enviando && (
           <p role="status" className="mt-2 rounded-lg bg-amber-50 p-2 text-xs font-medium text-amber-800">
             No cierres ni recargues esta página hasta que termine: el envío se

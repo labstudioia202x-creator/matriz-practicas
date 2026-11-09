@@ -9,6 +9,10 @@ import {
 } from "@/lib/comunicaciones/flujo";
 import { validarImagenes } from "@/lib/comunicaciones/imagenes";
 import {
+  repartirCupoTeams,
+  VENTANA_TEAMS_MS,
+} from "@/lib/comunicaciones/cupoTeams";
+import {
   CANALES,
   Canal,
   admiteTeams,
@@ -130,6 +134,15 @@ export async function crearComunicacion(
   return { id: data.id };
 }
 
+export type RespuestaLote = {
+  resultados?: ResultadoEnvio[];
+  // Estudiantes que no alcanzaron cupo de Teams: no se les mandó nada y el
+  // navegador los reenvía después de `esperarSegundos`.
+  aplazados?: string[];
+  esperarSegundos?: number;
+  error?: string;
+};
+
 /**
  * Personaliza y envía la comunicación a un lote de practicantes. Es
  * idempotente: lo que ya quedó "enviado" no se repite, así que sirve también
@@ -138,7 +151,7 @@ export async function crearComunicacion(
 export async function enviarLote(
   comunicacionId: string,
   practicanteIds: string[]
-): Promise<{ resultados?: ResultadoEnvio[]; error?: string }> {
+): Promise<RespuestaLote> {
   const supabase = await createClient();
 
   const {
@@ -171,6 +184,7 @@ export async function enviarLote(
     { data: practicantes },
     { data: previos },
     { data: imagenes, error: errorImagenes },
+    { data: recientesTeams, error: errorCupo },
   ] = await Promise.all([
       supabase
         .from("profiles")
@@ -194,11 +208,24 @@ export async function enviarLote(
         .select("nombre, contenido_base64")
         .eq("comunicacion_id", comunicacionId)
         .order("creado_en", { ascending: true }),
+      // Intentos de Teams del docente (de cualquier comunicación) que aún
+      // cuentan para el límite de Microsoft (ver cupoTeams.ts). Los fallidos
+      // también cuentan: la llamada a Teams pudo hacerse igual.
+      supabase
+        .from("comunicacion_envios")
+        .select("enviado_en")
+        .eq("docente_id", user.id)
+        .eq("canal", "teams")
+        .neq("estado", "omitido")
+        .gte("enviado_en", new Date(Date.now() - VENTANA_TEAMS_MS).toISOString()),
     ]);
 
   // Sin las imágenes es mejor no enviar que mandar el correo incompleto.
   if (errorImagenes) {
     return { error: `No se pudieron leer las imágenes: ${errorImagenes.message}` };
+  }
+  if (errorCupo) {
+    return { error: `No se pudo revisar el límite de Teams: ${errorCupo.message}` };
   }
 
   const adjuntos: AdjuntoCorreo[] = (imagenes ?? []).map((i) => ({
@@ -215,10 +242,32 @@ export async function enviarLote(
     (previos ?? []).map((e) => `${e.practicante_id}:${e.canal}`)
   );
 
+  // En el orden del navegador: el primero de la cola toma primero el cupo.
+  const lista = ((practicantes ?? []) as Practicante[]).sort(
+    (a, b) => practicanteIds.indexOf(a.id) - practicanteIds.indexOf(b.id)
+  );
+  const conTeams = lista.filter(
+    (p) =>
+      (comunicacion.canales as Canal[]).includes("teams") &&
+      !yaEnviados.has(`${p.id}:teams`) &&
+      correoValido(p.correo_electronico) &&
+      admiteTeams(p.correo_electronico)
+  );
+  const { permitidos, esperarSegundos } = repartirCupoTeams(
+    (recientesTeams ?? []).map((e) => Date.parse(e.enviado_en)),
+    conTeams.length,
+    Date.now()
+  );
+  // A quien no le alcanza el cupo no se le manda nada, tampoco el correo: así,
+  // si se cierra la página durante la pausa, sigue como pendiente en el
+  // historial.
+  const aplazados = new Set(conTeams.slice(permitidos).map((p) => p.id));
+
   const tareas: (() => Promise<ResultadoEnvio>)[] = [];
   const correos = new Map<string, string | null>();
 
-  for (const p of (practicantes ?? []) as Practicante[]) {
+  for (const p of lista) {
+    if (aplazados.has(p.id)) continue;
     const nombre = p.nombre_completo || "(sin nombre)";
     const correo = p.correo_electronico?.trim() ?? "";
     correos.set(p.id, p.correo_electronico);
@@ -304,7 +353,12 @@ export async function enviarLote(
     ENVIOS_SIMULTANEOS
   );
 
-  return { resultados };
+  if (aplazados.size === 0) return { resultados };
+  return {
+    resultados,
+    aplazados: [...aplazados],
+    esperarSegundos: esperarSegundos ?? 30,
+  };
 }
 
 async function ejecutarConLimite<T>(
