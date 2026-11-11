@@ -6,9 +6,10 @@ import { PracticanteConDocumentos } from "@/lib/types";
 import { AVANCES, PRACTICAS, ESTADOS } from "@/lib/constants";
 import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
 import {
-  CasillaIntersemestral,
+  CasillaMarca,
   EtiquetaIntersemestral,
-} from "@/components/Intersemestral";
+  EtiquetaPrueba,
+} from "@/components/MarcasPracticante";
 import { eliminarPracticante, FormState } from "@/app/(app)/practicantes/actions";
 
 const coloresBadge: Record<string, string> = {
@@ -91,6 +92,7 @@ export default function ListaPracticantes({
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroAvance, setFiltroAvance] = useState("");
   const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
+  const [filtroPrueba, setFiltroPrueba] = useState("");
   const [orden, setOrden] = useState<Orden | null>(null);
 
   // Clic en el encabezado: ascendente → descendente → sin orden
@@ -112,6 +114,8 @@ export default function ListaPracticantes({
       }
       if (filtroIntersemestral === "si" && !p.intersemestral) return false;
       if (filtroIntersemestral === "no" && p.intersemestral) return false;
+      if (filtroPrueba === "si" && !p.prueba) return false;
+      if (filtroPrueba === "no" && p.prueba) return false;
       if (!texto) return true;
       return [
         p.nombre_completo,
@@ -128,8 +132,14 @@ export default function ListaPracticantes({
     filtroEstado,
     filtroAvance,
     filtroIntersemestral,
+    filtroPrueba,
   ]);
-  const totalIntersemestral = practicantes.filter((p) => p.intersemestral).length;
+  // Los registros de prueba se ven en la lista pero no cuentan en los totales.
+  const reales = practicantes.filter((p) => !p.prueba);
+  const totalIntersemestral = reales.filter((p) => p.intersemestral).length;
+  const totalPrueba = practicantes.length - reales.length;
+  const mostradosReales = filtrados.filter((p) => !p.prueba).length;
+  const mostradosPrueba = filtrados.length - mostradosReales;
 
   const ordenados = useMemo(() => {
     if (!orden) return filtrados;
@@ -208,6 +218,18 @@ export default function ListaPracticantes({
           <option value="si">Solo intersemestral ({totalIntersemestral})</option>
           <option value="no">Sin intersemestral</option>
         </select>
+        {totalPrueba > 0 && (
+          <select
+            value={filtroPrueba}
+            onChange={(e) => setFiltroPrueba(e.target.value)}
+            aria-label="Filtrar registros de prueba"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">Con registros de prueba</option>
+            <option value="si">Solo de prueba ({totalPrueba})</option>
+            <option value="no">Sin registros de prueba</option>
+          </select>
+        )}
       </div>
 
       {filtrados.length === 0 ? (
@@ -222,7 +244,9 @@ export default function ListaPracticantes({
         </div>
       ) : (
         <p className="mb-2 text-xs text-slate-400">
-          Mostrando {filtrados.length} de {practicantes.length} practicantes
+          Mostrando {mostradosReales} de {reales.length} practicantes
+          {mostradosPrueba > 0 &&
+            ` · ${mostradosPrueba} de prueba (no cuentan)`}
         </p>
       )}
 
@@ -273,6 +297,13 @@ export default function ListaPracticantes({
               >
                 Intersem.
               </th>
+              <th
+                scope="col"
+                className="px-4 py-3 font-semibold"
+                title="Registro de prueba: no cuenta en los totales ni sale en el Excel"
+              >
+                Prueba
+              </th>
               <th className="px-4 py-3 font-semibold">Acciones</th>
             </tr>
           </thead>
@@ -282,9 +313,10 @@ export default function ListaPracticantes({
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {p.nombre_completo ?? "—"}
-                  {p.intersemestral && (
-                    <span className="mt-1 block">
-                      <EtiquetaIntersemestral />
+                  {(p.intersemestral || p.prueba) && (
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {p.intersemestral && <EtiquetaIntersemestral />}
+                      {p.prueba && <EtiquetaPrueba />}
                     </span>
                   )}
                 </td>
@@ -329,9 +361,18 @@ export default function ListaPracticantes({
                   </p>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <CasillaIntersemestral
+                  <CasillaMarca
                     id={p.id}
+                    marca="intersemestral"
                     marcado={p.intersemestral}
+                    nombre={p.nombre_completo ?? "practicante"}
+                  />
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <CasillaMarca
+                    id={p.id}
+                    marca="prueba"
+                    marcado={p.prueba}
                     nombre={p.nombre_completo ?? "practicante"}
                   />
                 </td>
@@ -393,9 +434,10 @@ export default function ListaPracticantes({
                   {p.programa_academico ?? "Sin programa"} · Sem.{" "}
                   {p.semestre ?? "-"}
                 </p>
-                {p.intersemestral && (
-                  <span className="mt-1 block">
-                    <EtiquetaIntersemestral />
+                {(p.intersemestral || p.prueba) && (
+                  <span className="mt-1 flex flex-wrap gap-1">
+                    {p.intersemestral && <EtiquetaIntersemestral />}
+                    {p.prueba && <EtiquetaPrueba />}
                   </span>
                 )}
               </div>
@@ -413,9 +455,22 @@ export default function ListaPracticantes({
               <div className="flex justify-between gap-2">
                 <dt className="text-slate-400">Intersemestral:</dt>
                 <dd>
-                  <CasillaIntersemestral
+                  <CasillaMarca
                     id={p.id}
+                    marca="intersemestral"
                     marcado={p.intersemestral}
+                    nombre={p.nombre_completo ?? "practicante"}
+                    conTexto
+                  />
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-400">Prueba:</dt>
+                <dd>
+                  <CasillaMarca
+                    id={p.id}
+                    marca="prueba"
+                    marcado={p.prueba}
                     nombre={p.nombre_completo ?? "practicante"}
                     conTexto
                   />

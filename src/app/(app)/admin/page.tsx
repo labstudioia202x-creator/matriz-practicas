@@ -36,8 +36,11 @@ export default async function AdminPage() {
     throw new Error(error.message);
   }
 
+  // Los registros de prueba se listan, pero no cuentan en los totales.
+  const reales = (practicantes ?? []).filter((p) => !p.prueba);
+  const enPrueba = (practicantes?.length ?? 0) - reales.length;
   const docentes = new Map<string, string>();
-  practicantes?.forEach((p) => {
+  reales.forEach((p) => {
     const nombre = p.docente?.full_name || p.docente?.email || "";
     if (!docentes.has(p.docente_id)) {
       docentes.set(p.docente_id, nombre);
@@ -51,7 +54,8 @@ export default async function AdminPage() {
           <h1 className="text-2xl font-bold text-slate-900">Administración</h1>
           <p className="mt-1 text-sm text-slate-500">
             Todos los practicantes registrados por los docentes (
-            {practicantes?.length ?? 0} en total · {docentes.size} docentes).
+            {reales.length} en total · {docentes.size} docentes
+            {enPrueba > 0 && ` · ${enPrueba} de prueba, que no cuentan`}).
           </p>
         </div>
         <a

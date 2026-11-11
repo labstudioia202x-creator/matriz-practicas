@@ -51,6 +51,7 @@ export default function EnvioComunicaciones({
   const [filtroPractica, setFiltroPractica] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
+  const [filtroPrueba, setFiltroPrueba] = useState("");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
 
   const [canales, setCanales] = useState<Set<Canal>>(new Set(CANALES));
@@ -86,11 +87,20 @@ export default function EnvioComunicaciones({
       if (filtroEstado && p.estado !== filtroEstado) return false;
       if (filtroIntersemestral === "si" && !p.intersemestral) return false;
       if (filtroIntersemestral === "no" && p.intersemestral) return false;
+      if (filtroPrueba === "si" && !p.prueba) return false;
+      if (filtroPrueba === "no" && p.prueba) return false;
       if (!texto) return true;
       return [p.nombre_completo, p.numero_documento, p.empresa, p.correo_electronico]
         .some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, busqueda, filtroPractica, filtroEstado, filtroIntersemestral]);
+  }, [
+    practicantes,
+    busqueda,
+    filtroPractica,
+    filtroEstado,
+    filtroIntersemestral,
+    filtroPrueba,
+  ]);
 
   const seleccionados = practicantes.filter((p) => seleccion.has(p.id));
   const todosFiltradosMarcados =
@@ -342,6 +352,16 @@ export default function EnvioComunicaciones({
             <option value="si">Solo intersemestral</option>
             <option value="no">Sin intersemestral</option>
           </select>
+          <select
+            value={filtroPrueba}
+            onChange={(e) => setFiltroPrueba(e.target.value)}
+            aria-label="Filtrar registros de prueba"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">Con registros de prueba</option>
+            <option value="si">Solo de prueba</option>
+            <option value="no">Sin registros de prueba</option>
+          </select>
         </div>
 
         <label className="mt-3 flex items-center gap-2 border-b border-slate-200 pb-2 text-sm font-medium text-slate-700">
@@ -378,6 +398,7 @@ export default function EnvioComunicaciones({
                     {p.correo_electronico || "Sin correo"} ·{" "}
                     {p.practica || "—"} · {p.estado || "—"}
                     {p.intersemestral && " · Intersemestral"}
+                    {p.prueba && " · Prueba"}
                   </span>
                 </span>
               </label>

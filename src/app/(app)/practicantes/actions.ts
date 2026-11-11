@@ -93,6 +93,7 @@ export async function guardarPracticante(
     motivo_reprobacion: motivo,
     observaciones: texto(formData, "observaciones"),
     intersemestral: formData.get("intersemestral") === "on",
+    prueba: formData.get("prueba") === "on",
   };
 
   const id = String(formData.get("id") ?? "");
@@ -121,14 +122,20 @@ export async function guardarPracticante(
   redirect("/practicantes");
 }
 
+export type MarcaPracticante = "intersemestral" | "prueba";
+const MARCAS: MarcaPracticante[] = ["intersemestral", "prueba"];
+
 /**
- * Marca o desmarca al practicante como intersemestral desde la lista. RLS
- * limita la actualización a los practicantes del docente (o al admin).
+ * Marca o desmarca al practicante (intersemestral o de prueba) desde la lista.
+ * RLS limita la actualización a los practicantes del docente (o al admin).
  */
-export async function marcarIntersemestral(
+export async function marcarPracticante(
   id: string,
-  intersemestral: boolean
+  marca: MarcaPracticante,
+  valor: boolean
 ): Promise<{ error?: string }> {
+  if (!MARCAS.includes(marca)) return { error: "Marca no válida." };
+
   const supabase = await createClient();
 
   const {
@@ -139,13 +146,13 @@ export async function marcarIntersemestral(
 
   const { data, error } = await supabase
     .from("practicantes")
-    .update({ intersemestral: Boolean(intersemestral) })
+    .update({ [marca]: Boolean(valor) })
     .eq("id", id)
     .select("id");
 
   if (error) {
     return {
-      error: error.message.includes("intersemestral")
+      error: error.message.includes(marca)
         ? "Falta ejecutar el esquema actualizado (supabase/schema.sql) en Supabase."
         : error.message,
     };
@@ -155,6 +162,7 @@ export async function marcarIntersemestral(
   revalidatePath("/practicantes");
   revalidatePath("/dashboard");
   revalidatePath("/comunicaciones");
+  revalidatePath("/admin");
   return {};
 }
 

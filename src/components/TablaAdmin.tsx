@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import { PracticanteConDocente } from "@/lib/types";
 import { AVANCES } from "@/lib/constants";
 import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
-import { EtiquetaIntersemestral } from "@/components/Intersemestral";
+import {
+  EtiquetaIntersemestral,
+  EtiquetaPrueba,
+} from "@/components/MarcasPracticante";
 
 const coloresBadge: Record<string, string> = {
   Aprobado: "bg-green-100 text-green-800",
@@ -31,6 +34,7 @@ export default function TablaAdmin({
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroAvance, setFiltroAvance] = useState("");
   const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
+  const [filtroPrueba, setFiltroPrueba] = useState("");
   const [busqueda, setBusqueda] = useState("");
 
   const filtrados = useMemo(() => {
@@ -42,11 +46,20 @@ export default function TablaAdmin({
       }
       if (filtroIntersemestral === "si" && !p.intersemestral) return false;
       if (filtroIntersemestral === "no" && p.intersemestral) return false;
+      if (filtroPrueba === "si" && !p.prueba) return false;
+      if (filtroPrueba === "no" && p.prueba) return false;
       if (!texto) return true;
       return [p.nombre_completo, p.numero_documento, p.empresa, p.practica, p.docente?.full_name, p.docente?.email]
         .some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, filtroEstado, filtroAvance, filtroIntersemestral, busqueda]);
+  }, [
+    practicantes,
+    filtroEstado,
+    filtroAvance,
+    filtroIntersemestral,
+    filtroPrueba,
+    busqueda,
+  ]);
 
   return (
     <div>
@@ -92,6 +105,16 @@ export default function TablaAdmin({
           <option value="si">Solo intersemestral</option>
           <option value="no">Sin intersemestral</option>
         </select>
+          <select
+            value={filtroPrueba}
+            onChange={(e) => setFiltroPrueba(e.target.value)}
+            aria-label="Filtrar registros de prueba"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">Con registros de prueba</option>
+            <option value="si">Solo de prueba</option>
+            <option value="no">Sin registros de prueba</option>
+          </select>
       </div>
 
       {/* Escritorio */}
@@ -120,9 +143,10 @@ export default function TablaAdmin({
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {p.nombre_completo ?? "—"}
-                  {p.intersemestral && (
-                    <span className="mt-1 block">
-                      <EtiquetaIntersemestral />
+                  {(p.intersemestral || p.prueba) && (
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      {p.intersemestral && <EtiquetaIntersemestral />}
+                      {p.prueba && <EtiquetaPrueba />}
                     </span>
                   )}
                 </td>
@@ -203,6 +227,7 @@ export default function TablaAdmin({
                   {i + 1}. {p.nombre_completo ?? "Sin nombre"}
                 </p>
                 {p.intersemestral && <EtiquetaIntersemestral />}
+                {p.prueba && <EtiquetaPrueba />}
                 <p className="mt-0.5 text-xs text-slate-500">
                   {p.practica ?? "Sin práctica"} ·{" "}
                   {p.programa_academico ?? "Sin programa"} · Sem.{" "}

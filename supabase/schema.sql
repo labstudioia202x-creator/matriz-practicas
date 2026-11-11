@@ -576,5 +576,10 @@ grant select, insert, delete on public.accesos_estudiante to service_role;
 alter table public.practicantes
   add column if not exists intersemestral boolean not null default false;
 
+-- 10i) Registros de prueba (para validar la app, p. ej. con el correo propio del
+--      docente). No cuentan en el dashboard, los totales ni el Excel exportado.
+alter table public.practicantes
+  add column if not exists prueba boolean not null default false;
+
 -- Que la Data API vea de inmediato las columnas nuevas
 notify pgrst, 'reload schema';

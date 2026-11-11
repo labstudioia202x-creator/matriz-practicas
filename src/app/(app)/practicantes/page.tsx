@@ -38,8 +38,9 @@ export default async function PracticantesPage() {
   const protocolo = cabeceras.get("x-forwarded-proto") ?? "https";
   const enlacePortal = `${protocolo}://${cabeceras.get("host")}/acceso-estudiante`;
 
-  const totalReprobados =
-    practicantes?.filter((p) => p.estado === "Reprobado").length ?? 0;
+  // Los registros de prueba no cuentan en los totales.
+  const reales = (practicantes ?? []).filter((p) => !p.prueba);
+  const totalReprobados = reales.filter((p) => p.estado === "Reprobado").length;
 
   return (
     <div>
@@ -49,7 +50,7 @@ export default async function PracticantesPage() {
             Mis practicantes
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {practicantes?.length ?? 0} registrados · {totalReprobados}{" "}
+            {reales.length} registrados · {totalReprobados}{" "}
             reprobados
           </p>
         </div>

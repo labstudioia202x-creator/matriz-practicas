@@ -36,6 +36,8 @@ export async function GET() {
   const { data: practicantes, error } = await supabase
     .from("practicantes")
     .select("*, docente:profiles!docente_id(full_name, email)")
+    // Los registros de prueba no van en la matriz oficial.
+    .eq("prueba", false)
     .order("created_at", { ascending: true });
 
   if (error) {

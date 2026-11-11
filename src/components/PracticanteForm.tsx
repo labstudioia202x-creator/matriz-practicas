@@ -308,6 +308,22 @@ export default function PracticanteForm({
               </span>
             </span>
           </label>
+
+          <label className="flex items-start gap-2 text-sm text-slate-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="prueba"
+              defaultChecked={practicante?.prueba ?? false}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="font-medium">Registro de prueba</span>
+              <span className="block text-xs text-slate-500">
+                Para hacer validaciones (por ejemplo, con tu propio correo). No
+                cuenta en los totales ni en el dashboard, y no sale en el Excel.
+              </span>
+            </span>
+          </label>
         </div>
       </section>
 

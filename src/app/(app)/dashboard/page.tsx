@@ -25,13 +25,16 @@ export default async function DashboardPage() {
 
   const query = supabase
     .from("practicantes")
-    .select("estado, practica, avance, intersemestral")
+    .select("estado, practica, avance, intersemestral, prueba")
     .order("created_at");
   if (!esAdmin) {
     query.eq("docente_id", user.id);
   }
 
-  const { data: practicantes } = await query;
+  const { data: todos } = await query;
+  // Los registros de prueba (para validar la app) no cuentan en nada.
+  const practicantes = todos?.filter((p) => !p.prueba);
+  const enPrueba = (todos?.length ?? 0) - (practicantes?.length ?? 0);
 
   const total = practicantes?.length ?? 0;
   const intersemestral =
@@ -75,6 +78,12 @@ export default async function DashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <p className="text-sm text-slate-500">Total de practicantes</p>
           <p className="mt-1 text-3xl font-bold text-primary">{total}</p>
+          {enPrueba > 0 && (
+            <p className="mt-1 text-xs text-slate-500">
+              No incluye {enPrueba} {enPrueba === 1 ? "registro" : "registros"} de
+              prueba.
+            </p>
+          )}
         </div>
 
         {porPractica.map(({ practica, cantidad }) => (

@@ -20,6 +20,8 @@ export interface Practicante {
   formularios_diligenciados: string[];
   // Sigue en el intersemestral (marca del docente, aparte de estado y avance).
   intersemestral: boolean;
+  // Registro de prueba: no cuenta en los contadores ni sale en el Excel.
+  prueba: boolean;
   created_at: string;
   updated_at: string;
 }
