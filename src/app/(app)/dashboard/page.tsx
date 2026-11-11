@@ -33,15 +33,22 @@ export default async function DashboardPage() {
 
   const { data: todos } = await query;
   // Los registros de prueba (para validar la app) no cuentan en nada.
-  const practicantes = todos?.filter((p) => !p.prueba);
-  const enPrueba = (todos?.length ?? 0) - (practicantes?.length ?? 0);
+  const sinPrueba = todos?.filter((p) => !p.prueba) ?? [];
+  const enPrueba = (todos?.length ?? 0) - sinPrueba.length;
+  // Los de intersemestral solo se cuentan en su tarjeta: no entran en el
+  // total ni en los conteos por práctica, estado o avance.
+  const intersemestral = sinPrueba.filter((p) => p.intersemestral).length;
+  const practicantes = sinPrueba.filter((p) => !p.intersemestral);
 
-  const total = practicantes?.length ?? 0;
-  const intersemestral =
-    practicantes?.filter((p) => p.intersemestral).length ?? 0;
+  const total = practicantes.length;
+  const excluidos = [
+    intersemestral > 0 && `${intersemestral} en intersemestral`,
+    enPrueba > 0 &&
+      `${enPrueba} ${enPrueba === 1 ? "registro" : "registros"} de prueba`,
+  ].filter(Boolean);
   const porEstado = ESTADOS.map((estado) => ({
     estado,
-    cantidad: practicantes?.filter((p) => p.estado === estado).length ?? 0,
+    cantidad: practicantes.filter((p) => p.estado === estado).length,
   }));
 
   const colores: Record<string, string> = {
@@ -55,12 +62,12 @@ export default async function DashboardPage() {
 
   const porPractica = PRACTICAS.map((practica) => ({
     practica,
-    cantidad: practicantes?.filter((p) => p.practica === practica).length ?? 0,
+    cantidad: practicantes.filter((p) => p.practica === practica).length,
   }));
 
   const porAvance = [...AVANCES, null].map((avance) => ({
     avance,
-    cantidad: practicantes?.filter((p) => p.avance === avance).length ?? 0,
+    cantidad: practicantes.filter((p) => p.avance === avance).length,
   }));
 
   return (
@@ -78,10 +85,9 @@ export default async function DashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-5">
           <p className="text-sm text-slate-500">Total de practicantes</p>
           <p className="mt-1 text-3xl font-bold text-primary">{total}</p>
-          {enPrueba > 0 && (
+          {excluidos.length > 0 && (
             <p className="mt-1 text-xs text-slate-500">
-              No incluye {enPrueba} {enPrueba === 1 ? "registro" : "registros"} de
-              prueba.
+              No incluye {excluidos.join(" ni ")}.
             </p>
           )}
         </div>
@@ -108,7 +114,8 @@ export default async function DashboardPage() {
             {intersemestral}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Siguen su práctica en el intersemestral.
+            Siguen su práctica en el intersemestral. No cuentan en los demás
+            totales.
           </p>
         </div>
       </div>
