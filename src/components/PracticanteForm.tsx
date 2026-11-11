@@ -292,6 +292,22 @@ export default function PracticanteForm({
               className={inputClases}
             />
           </div>
+
+          <label className="flex items-start gap-2 text-sm text-slate-700 sm:col-span-2">
+            <input
+              type="checkbox"
+              name="intersemestral"
+              defaultChecked={practicante?.intersemestral ?? false}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="font-medium">Intersemestral</span>
+              <span className="block text-xs text-slate-500">
+                No alcanza a terminar en el semestre y sigue su práctica en el
+                intersemestral.
+              </span>
+            </span>
+          </label>
         </div>
       </section>
 

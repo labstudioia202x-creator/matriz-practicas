@@ -18,6 +18,8 @@ export interface Practicante {
   avance: string | null;
   avance_actualizado_en: string | null;
   formularios_diligenciados: string[];
+  // Sigue en el intersemestral (marca del docente, aparte de estado y avance).
+  intersemestral: boolean;
   created_at: string;
   updated_at: string;
 }

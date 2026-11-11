@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { PracticanteConDocente } from "@/lib/types";
 import { AVANCES } from "@/lib/constants";
 import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
+import { EtiquetaIntersemestral } from "@/components/Intersemestral";
 
 const coloresBadge: Record<string, string> = {
   Aprobado: "bg-green-100 text-green-800",
@@ -29,6 +30,7 @@ export default function TablaAdmin({
 }) {
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroAvance, setFiltroAvance] = useState("");
+  const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
   const [busqueda, setBusqueda] = useState("");
 
   const filtrados = useMemo(() => {
@@ -38,11 +40,13 @@ export default function TablaAdmin({
       if (filtroAvance && (p.avance ?? "Sin reportar") !== filtroAvance) {
         return false;
       }
+      if (filtroIntersemestral === "si" && !p.intersemestral) return false;
+      if (filtroIntersemestral === "no" && p.intersemestral) return false;
       if (!texto) return true;
       return [p.nombre_completo, p.numero_documento, p.empresa, p.practica, p.docente?.full_name, p.docente?.email]
         .some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, filtroEstado, filtroAvance, busqueda]);
+  }, [practicantes, filtroEstado, filtroAvance, filtroIntersemestral, busqueda]);
 
   return (
     <div>
@@ -78,6 +82,16 @@ export default function TablaAdmin({
             </option>
           ))}
         </select>
+        <select
+          value={filtroIntersemestral}
+          onChange={(e) => setFiltroIntersemestral(e.target.value)}
+          aria-label="Filtrar por intersemestral"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Con y sin intersemestral</option>
+          <option value="si">Solo intersemestral</option>
+          <option value="no">Sin intersemestral</option>
+        </select>
       </div>
 
       {/* Escritorio */}
@@ -106,6 +120,11 @@ export default function TablaAdmin({
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {p.nombre_completo ?? "—"}
+                  {p.intersemestral && (
+                    <span className="mt-1 block">
+                      <EtiquetaIntersemestral />
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -183,6 +202,7 @@ export default function TablaAdmin({
                 <p className="font-semibold text-slate-900">
                   {i + 1}. {p.nombre_completo ?? "Sin nombre"}
                 </p>
+                {p.intersemestral && <EtiquetaIntersemestral />}
                 <p className="mt-0.5 text-xs text-slate-500">
                   {p.practica ?? "Sin práctica"} ·{" "}
                   {p.programa_academico ?? "Sin programa"} · Sem.{" "}

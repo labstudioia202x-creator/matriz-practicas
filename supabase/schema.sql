@@ -570,5 +570,11 @@ alter table public.accesos_estudiante enable row level security;
 revoke all on public.accesos_estudiante from anon, authenticated;
 grant select, insert, delete on public.accesos_estudiante to service_role;
 
+-- 10h) Estudiantes que no alcanzan a terminar en el semestre y siguen en el
+--      intersemestral que ofreció la universidad (nov 2026). Es una marca del
+--      docente, aparte de `estado` y `avance`.
+alter table public.practicantes
+  add column if not exists intersemestral boolean not null default false;
+
 -- Que la Data API vea de inmediato las columnas nuevas
 notify pgrst, 'reload schema';

@@ -25,7 +25,7 @@ export default async function DashboardPage() {
 
   const query = supabase
     .from("practicantes")
-    .select("estado, practica, avance")
+    .select("estado, practica, avance, intersemestral")
     .order("created_at");
   if (!esAdmin) {
     query.eq("docente_id", user.id);
@@ -34,6 +34,8 @@ export default async function DashboardPage() {
   const { data: practicantes } = await query;
 
   const total = practicantes?.length ?? 0;
+  const intersemestral =
+    practicantes?.filter((p) => p.intersemestral).length ?? 0;
   const porEstado = ESTADOS.map((estado) => ({
     estado,
     cantidad: practicantes?.filter((p) => p.estado === estado).length ?? 0,
@@ -88,6 +90,18 @@ export default async function DashboardPage() {
             </p>
           </div>
         ))}
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <span className="inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-800">
+            Intersemestral
+          </span>
+          <p className="mt-2 text-2xl font-bold text-slate-900">
+            {intersemestral}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Siguen su práctica en el intersemestral.
+          </p>
+        </div>
       </div>
 
       <h2 className="mt-8 text-sm font-bold uppercase tracking-wide text-slate-500">

@@ -24,6 +24,7 @@ Aplicación web (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase) pa
 - Soportes por practicante subidos a SharePoint/OneDrive (`/practicantes/[id]/soportes`), con carpeta parametrizable por docente (`/configuracion`).
 - Comunicaciones masivas personalizadas por Teams y correo (`/comunicaciones`), ver sección propia.
 - Portal del estudiante (`/acceso-estudiante` → `/mi-practica`): entra con un código al correo, completa datos, sube documentos e indica su paso. Ver sección propia.
+- Marca **Intersemestral** (nov 2026; `practicantes.intersemestral boolean`, sección 10h de `schema.sql`): estudiantes que no alcanzan a terminar en el semestre y siguen en el intersemestral que ofreció la universidad. Es una marca del docente, aparte de `estado` y `avance`. Se marca con la casilla de la columna "Intersem." en "Mis practicantes" (`marcarIntersemestral`, componente `Intersemestral.tsx`) o en el formulario de edición. Tiene etiqueta y filtro en "Mis practicantes", Comunicaciones y Admin, tarjeta en el dashboard y columna P "Intersemestral" (Sí/vacío) al final del Excel exportado. El portal del estudiante no la muestra.
 
 ## Soportes en SharePoint / OneDrive
 

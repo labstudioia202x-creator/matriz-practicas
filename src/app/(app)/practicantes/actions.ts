@@ -92,6 +92,7 @@ export async function guardarPracticante(
     estado,
     motivo_reprobacion: motivo,
     observaciones: texto(formData, "observaciones"),
+    intersemestral: formData.get("intersemestral") === "on",
   };
 
   const id = String(formData.get("id") ?? "");
@@ -118,6 +119,43 @@ export async function guardarPracticante(
   revalidatePath("/practicantes");
   revalidatePath("/dashboard");
   redirect("/practicantes");
+}
+
+/**
+ * Marca o desmarca al practicante como intersemestral desde la lista. RLS
+ * limita la actualización a los practicantes del docente (o al admin).
+ */
+export async function marcarIntersemestral(
+  id: string,
+  intersemestral: boolean
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+
+  const { data, error } = await supabase
+    .from("practicantes")
+    .update({ intersemestral: Boolean(intersemestral) })
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    return {
+      error: error.message.includes("intersemestral")
+        ? "Falta ejecutar el esquema actualizado (supabase/schema.sql) en Supabase."
+        : error.message,
+    };
+  }
+  if (!data?.length) return { error: "No se encontró el practicante." };
+
+  revalidatePath("/practicantes");
+  revalidatePath("/dashboard");
+  revalidatePath("/comunicaciones");
+  return {};
 }
 
 export async function eliminarPracticante(

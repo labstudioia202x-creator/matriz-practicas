@@ -61,6 +61,7 @@ export async function GET() {
     { key: "estado", width: 14 },
     { key: "motivo", width: 32 },
     { key: "observaciones", width: 38 },
+    { key: "intersemestral", width: 14 },
   ];
 
   const borde = {
@@ -71,7 +72,7 @@ export async function GET() {
   };
 
   // Fila 1: Título general
-  sheet.mergeCells("A1:O1");
+  sheet.mergeCells("A1:P1");
   const titulo = sheet.getCell("A1");
   titulo.value = "INFORME DE PRACTICANTES – UCOMPENSAR";
   titulo.font = { bold: true, size: 13, color: { argb: "FFFFFFFF" } };
@@ -80,7 +81,7 @@ export async function GET() {
   sheet.getRow(1).height = 24;
 
   // Fila 2: Período
-  sheet.mergeCells("A2:O2");
+  sheet.mergeCells("A2:P2");
   const periodo = sheet.getCell("A2");
   periodo.value = `Período de seguimiento ${PERIODO_SEGUIMIENTO}`;
   periodo.font = { bold: true, color: { argb: "FF0054A6" } };
@@ -91,7 +92,7 @@ export async function GET() {
   // Fila 3: Encabezados de sección
   sheet.mergeCells("A3:G3");
   sheet.mergeCells("H3:L3");
-  sheet.mergeCells("M3:O3");
+  sheet.mergeCells("M3:P3");
   const secciones = [
     { cell: "A3", texto: "DATOS DEL PRACTICANTE" },
     { cell: "H3", texto: "INFORMACIÓN DE VINCULACIÓN" },
@@ -123,6 +124,7 @@ export async function GET() {
     "Estado",
     "Motivo de Reprobación",
     "Observaciones",
+    "Intersemestral",
   ];
   const headerRow = sheet.getRow(4);
   titulares.forEach((titulo, idx) => {
@@ -155,6 +157,7 @@ export async function GET() {
       p.estado ?? "",
       p.motivo_reprobacion ?? "",
       p.observaciones ?? "",
+      p.intersemestral ? "Sí" : "",
     ];
     fila.alignment = { vertical: "top", wrapText: true };
     fila.eachCell((celda) => {
@@ -209,7 +212,7 @@ export async function GET() {
   sheet.views = [{ state: "frozen", ySplit: 4 }];
   sheet.autoFilter = {
     from: "A4",
-    to: "O4",
+    to: "P4",
   };
 
   const buffer = await workbook.xlsx.writeBuffer();

@@ -5,6 +5,10 @@ import Link from "next/link";
 import { PracticanteConDocumentos } from "@/lib/types";
 import { AVANCES, PRACTICAS, ESTADOS } from "@/lib/constants";
 import { AvanceBadge, CompletitudResumen } from "@/components/IndicadoresPortal";
+import {
+  CasillaIntersemestral,
+  EtiquetaIntersemestral,
+} from "@/components/Intersemestral";
 import { eliminarPracticante, FormState } from "@/app/(app)/practicantes/actions";
 
 const coloresBadge: Record<string, string> = {
@@ -86,6 +90,7 @@ export default function ListaPracticantes({
   const [filtroPractica, setFiltroPractica] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
   const [filtroAvance, setFiltroAvance] = useState("");
+  const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
   const [orden, setOrden] = useState<Orden | null>(null);
 
   // Clic en el encabezado: ascendente → descendente → sin orden
@@ -105,6 +110,8 @@ export default function ListaPracticantes({
       if (filtroAvance && (p.avance ?? "Sin reportar") !== filtroAvance) {
         return false;
       }
+      if (filtroIntersemestral === "si" && !p.intersemestral) return false;
+      if (filtroIntersemestral === "no" && p.intersemestral) return false;
       if (!texto) return true;
       return [
         p.nombre_completo,
@@ -114,7 +121,15 @@ export default function ListaPracticantes({
         p.tutor_empresa,
       ].some((v) => v?.toLowerCase().includes(texto));
     });
-  }, [practicantes, busqueda, filtroPractica, filtroEstado, filtroAvance]);
+  }, [
+    practicantes,
+    busqueda,
+    filtroPractica,
+    filtroEstado,
+    filtroAvance,
+    filtroIntersemestral,
+  ]);
+  const totalIntersemestral = practicantes.filter((p) => p.intersemestral).length;
 
   const ordenados = useMemo(() => {
     if (!orden) return filtrados;
@@ -183,6 +198,16 @@ export default function ListaPracticantes({
             </option>
           ))}
         </select>
+        <select
+          value={filtroIntersemestral}
+          onChange={(e) => setFiltroIntersemestral(e.target.value)}
+          aria-label="Filtrar por intersemestral"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          <option value="">Con y sin intersemestral</option>
+          <option value="si">Solo intersemestral ({totalIntersemestral})</option>
+          <option value="no">Sin intersemestral</option>
+        </select>
       </div>
 
       {filtrados.length === 0 ? (
@@ -192,7 +217,7 @@ export default function ListaPracticantes({
             No se encontraron practicantes
           </h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Ajusta el buscador o los filtros de práctica y estado.
+            Ajusta el buscador o los filtros.
           </p>
         </div>
       ) : (
@@ -241,6 +266,13 @@ export default function ListaPracticantes({
                   </th>
                 );
               })}
+              <th
+                scope="col"
+                className="px-4 py-3 font-semibold"
+                title="Sigue en el intersemestral"
+              >
+                Intersem.
+              </th>
               <th className="px-4 py-3 font-semibold">Acciones</th>
             </tr>
           </thead>
@@ -250,6 +282,11 @@ export default function ListaPracticantes({
                 <td className="px-4 py-3 text-slate-400">{i + 1}</td>
                 <td className="px-4 py-3 font-medium text-slate-900">
                   {p.nombre_completo ?? "—"}
+                  {p.intersemestral && (
+                    <span className="mt-1 block">
+                      <EtiquetaIntersemestral />
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span
@@ -290,6 +327,13 @@ export default function ListaPracticantes({
                   <p className="mt-1">
                     <CompletitudResumen practicante={p} />
                   </p>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <CasillaIntersemestral
+                    id={p.id}
+                    marcado={p.intersemestral}
+                    nombre={p.nombre_completo ?? "practicante"}
+                  />
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
@@ -349,6 +393,11 @@ export default function ListaPracticantes({
                   {p.programa_academico ?? "Sin programa"} · Sem.{" "}
                   {p.semestre ?? "-"}
                 </p>
+                {p.intersemestral && (
+                  <span className="mt-1 block">
+                    <EtiquetaIntersemestral />
+                  </span>
+                )}
               </div>
               <span
                 className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -361,6 +410,17 @@ export default function ListaPracticantes({
             </div>
 
             <dl className="mt-3 space-y-1 text-xs text-slate-600">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-400">Intersemestral:</dt>
+                <dd>
+                  <CasillaIntersemestral
+                    id={p.id}
+                    marcado={p.intersemestral}
+                    nombre={p.nombre_completo ?? "practicante"}
+                    conTexto
+                  />
+                </dd>
+              </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-slate-400">Avance:</dt>
                 <dd className="flex flex-wrap items-center justify-end gap-2">
