@@ -35,12 +35,15 @@ export default function GuiaPasos({
   avance,
   documentos,
   formularios,
+  recibidos,
   datosCompletos,
 }: {
   practicanteId: string;
   avance: string | null;
   documentos: DocumentoEntregado[];
   formularios: string[];
+  /** Lo que el docente marcó como recibido: cuenta como entregado. */
+  recibidos: string[];
   datosCompletos: boolean;
 }) {
   const [estado, accion, guardando] = useActionState(marcarAvance, estadoInicial);
@@ -73,7 +76,8 @@ export default function GuiaPasos({
           const pendientes = requisitosPendientes(
             paso.avance,
             formularios,
-            documentos
+            documentos,
+            recibidos
           );
           const esObligatorio =
             paso.avance === PASO_CON_REQUISITOS_OBLIGATORIOS;
@@ -164,6 +168,7 @@ export default function GuiaPasos({
                       requisito={requisito}
                       formularios={formularios}
                       documentos={documentos}
+                      recibidos={recibidos}
                     />
                   ))}
                 </ul>
@@ -188,16 +193,19 @@ function FilaRequisito({
   requisito,
   formularios,
   documentos,
+  recibidos,
 }: {
   practicanteId: string;
   requisito: RequisitoGuia;
   formularios: string[];
   documentos: DocumentoEntregado[];
+  recibidos: string[];
 }) {
-  const { cumplido, diligenciado } = estadoRequisito(
+  const { cumplido, diligenciado, recibido } = estadoRequisito(
     requisito,
     formularios,
-    documentos
+    documentos,
+    recibidos
   );
   const ultimo = documentos.find((d) => d.tipo_documento === requisito.id);
   const esFormulario = requisito.tipo === "formulario";
@@ -219,6 +227,11 @@ function FilaRequisito({
             </span>
           </p>
           <p className="mt-0.5 text-xs text-slate-500">{requisito.ayuda}</p>
+          {recibido && (
+            <p className="mt-0.5 text-xs font-medium text-green-800">
+              Tu docente lo marcó como recibido.
+            </p>
+          )}
           {ultimo && (
             <p className="mt-0.5 break-words text-xs text-slate-700">
               Entregado: {ultimo.nombre_archivo} · {ultimo.fecha}

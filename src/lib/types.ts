@@ -18,6 +18,8 @@ export interface Practicante {
   avance: string | null;
   avance_actualizado_en: string | null;
   formularios_diligenciados: string[];
+  // Entregables que el docente marcó como recibidos (ids de la guía).
+  requisitos_recibidos: string[];
   // Sigue en el intersemestral (marca del docente, aparte de estado y avance).
   intersemestral: boolean;
   // Registro de prueba: no cuenta en los contadores ni sale en el Excel.

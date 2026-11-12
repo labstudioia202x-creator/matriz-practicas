@@ -61,7 +61,8 @@ export async function marcarAvance(
     const pendientes = requisitosPendientes(
       PASO_CON_REQUISITOS_OBLIGATORIOS,
       practica.formularios_diligenciados,
-      soportes ?? []
+      soportes ?? [],
+      practica.requisitos_recibidos
     );
 
     if (pendientes.length > 0) {

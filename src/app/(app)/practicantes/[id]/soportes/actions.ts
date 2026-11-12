@@ -66,6 +66,66 @@ export async function cambiarAvance(
   return { ok: avance ? `Avance cambiado a "${avance}".` : "Avance quitado." };
 }
 
+/**
+ * El docente marca (o desmarca) un entregable de la guía como recibido, por
+ * ejemplo cuando el estudiante se lo mandó por correo y no lo subió al portal.
+ * Cuenta como cumplido aunque no haya archivo.
+ */
+export async function marcarRecibido(
+  practicanteId: string,
+  requisitoId: string,
+  recibido: boolean
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+  }
+
+  if (!REQUISITOS_GUIA.some((r) => r.id === requisitoId)) {
+    return { error: "Ese entregable no hace parte de la guía." };
+  }
+
+  const { data: practicante, error: errorLectura } = await supabase
+    .from("practicantes")
+    .select("id, docente_id, requisitos_recibidos")
+    .eq("id", practicanteId)
+    .maybeSingle();
+
+  if (errorLectura) {
+    return {
+      error: errorLectura.message.includes("requisitos_recibidos")
+        ? "Falta ejecutar el esquema actualizado (supabase/schema.sql) en Supabase."
+        : errorLectura.message,
+    };
+  }
+
+  if (!practicante || practicante.docente_id !== user.id) {
+    return { error: "No tienes permiso sobre este practicante." };
+  }
+
+  const otros = ((practicante.requisitos_recibidos ?? []) as string[]).filter(
+    (r) => r !== requisitoId
+  );
+
+  const { error } = await supabase
+    .from("practicantes")
+    .update({ requisitos_recibidos: recibido ? [...otros, requisitoId] : otros })
+    .eq("id", practicanteId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/practicantes/${practicanteId}/soportes`);
+  revalidatePath("/practicantes");
+  revalidatePath("/admin");
+  revalidatePath("/mi-practica");
+  return {};
+}
+
 export async function subirSoporte(
   state: SoporteState,
   formData: FormData

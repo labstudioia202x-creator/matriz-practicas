@@ -5,7 +5,7 @@ import { Practicante } from "@/lib/types";
  * Guía del portal del estudiante: las tres entregas oficiales de la práctica y
  * lo que se pide en cada una. Para cambiar lo que se pide solo se edita este
  * archivo. Los `id` quedan guardados en `soportes.tipo_documento` y en
- * `practicantes.formularios_diligenciados`, así que no se deben renombrar una
+ * `practicantes.formularios_diligenciados` y `practicantes.requisitos_recibidos`, así que no se deben renombrar una
  * vez haya entregas cargadas con ellos.
  */
 
@@ -146,6 +146,8 @@ type SoporteGuia = { tipo_documento: string | null };
 
 export type EstadoRequisito = {
   cumplido: boolean;
+  /** El docente lo marcó como recibido (cuenta como cumplido sin archivo). */
+  recibido: boolean;
   /** Solo formularios: el estudiante marcó el check. */
   diligenciado: boolean;
   tieneArchivo: boolean;
@@ -154,18 +156,27 @@ export type EstadoRequisito = {
 export function estadoRequisito(
   requisito: RequisitoGuia,
   formularios: string[],
-  soportes: SoporteGuia[]
+  soportes: SoporteGuia[],
+  recibidos: string[] = []
 ): EstadoRequisito {
   const tieneArchivo = soportes.some((s) => s.tipo_documento === requisito.id);
+  const recibido = (recibidos ?? []).includes(requisito.id);
 
   if (requisito.tipo === "documento") {
-    return { cumplido: tieneArchivo, diligenciado: false, tieneArchivo };
+    return {
+      cumplido: recibido || tieneArchivo,
+      recibido,
+      diligenciado: false,
+      tieneArchivo,
+    };
   }
 
   const diligenciado = formularios.includes(requisito.id);
   return {
     cumplido:
-      diligenciado && (!requisito.evidenciaObligatoria || tieneArchivo),
+      recibido ||
+      (diligenciado && (!requisito.evidenciaObligatoria || tieneArchivo)),
+    recibido,
     diligenciado,
     tieneArchivo,
   };
@@ -175,12 +186,13 @@ export function estadoRequisito(
 export function requisitosPendientes(
   avance: Avance,
   formularios: string[],
-  soportes: SoporteGuia[]
+  soportes: SoporteGuia[],
+  recibidos: string[] = []
 ): RequisitoGuia[] {
   const paso = PASOS_GUIA.find((p) => p.avance === avance);
 
   return (paso?.requisitos ?? []).filter(
-    (r) => !estadoRequisito(r, formularios, soportes).cumplido
+    (r) => !estadoRequisito(r, formularios, soportes, recibidos).cumplido
   );
 }
 
@@ -204,7 +216,10 @@ export type Completitud = {
 };
 
 export function calcularCompletitud(
-  practicante: Pick<Practicante, CampoEstudiante | "formularios_diligenciados">,
+  practicante: Pick<
+    Practicante,
+    CampoEstudiante | "formularios_diligenciados" | "requisitos_recibidos"
+  >,
   soportes: SoporteGuia[] = []
 ): Completitud {
   return {
@@ -218,8 +233,12 @@ export function calcularCompletitud(
     entregables: {
       hechos: REQUISITOS_GUIA.filter(
         (r) =>
-          estadoRequisito(r, practicante.formularios_diligenciados, soportes)
-            .cumplido
+          estadoRequisito(
+            r,
+            practicante.formularios_diligenciados,
+            soportes,
+            practicante.requisitos_recibidos
+          ).cumplido
       ).length,
       total: REQUISITOS_GUIA.length,
     },

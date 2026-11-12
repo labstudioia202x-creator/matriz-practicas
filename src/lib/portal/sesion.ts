@@ -12,7 +12,7 @@ import { Practicante } from "@/lib/types";
  * `estado`, `motivo_reprobacion` y `observaciones` son del docente y no se leen.
  */
 const COLUMNAS_PORTAL =
-  "id, docente_id, practica, nombre_completo, numero_documento, programa_academico, semestre, correo_electronico, empresa, modalidad, fecha_inicio, fecha_fin, tutor_empresa, avance, avance_actualizado_en, formularios_diligenciados, created_at";
+  "id, docente_id, practica, nombre_completo, numero_documento, programa_academico, semestre, correo_electronico, empresa, modalidad, fecha_inicio, fecha_fin, tutor_empresa, avance, avance_actualizado_en, formularios_diligenciados, requisitos_recibidos, created_at";
 
 export type PracticaPortal = Pick<
   Practicante,
@@ -32,6 +32,7 @@ export type PracticaPortal = Pick<
   | "avance"
   | "avance_actualizado_en"
   | "formularios_diligenciados"
+  | "requisitos_recibidos"
   | "created_at"
 >;
 

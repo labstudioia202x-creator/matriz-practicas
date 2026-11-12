@@ -581,5 +581,12 @@ alter table public.practicantes
 alter table public.practicantes
   add column if not exists prueba boolean not null default false;
 
+-- 10j) Entregables que el docente marca como recibidos (ids de
+--      src/lib/portal/guia.ts), p. ej. cuando el estudiante los mandó por correo.
+--      Cuentan como cumplidos aunque no haya archivo en soportes. El estudiante
+--      solo los lee (el portal usa la service_role con lista cerrada de columnas).
+alter table public.practicantes
+  add column if not exists requisitos_recibidos text[] not null default '{}';
+
 -- Que la Data API vea de inmediato las columnas nuevas
 notify pgrst, 'reload schema';

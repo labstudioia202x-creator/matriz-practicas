@@ -156,6 +156,7 @@ export default async function MiPracticaPage({
         avance={practica.avance}
         documentos={documentos}
         formularios={practica.formularios_diligenciados}
+        recibidos={practica.requisitos_recibidos ?? []}
         datosCompletos={completitud.datos.hechos === completitud.datos.total}
       />
 

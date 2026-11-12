@@ -6,6 +6,7 @@ import { sanitizarNombre } from "@/lib/microsoft/graph";
 import PanelSoportes from "@/components/PanelSoportes";
 import { AvanceBadge } from "@/components/IndicadoresPortal";
 import CambiarAvance from "@/components/CambiarAvance";
+import MarcaRecibido from "@/components/MarcaRecibido";
 import {
   calcularCompletitud,
   estadoRequisito,
@@ -111,7 +112,9 @@ export default async function SoportesPage({
           <CambiarAvance practicanteId={p.id} avance={p.avance} />
           <p className="mt-1 text-xs text-slate-500">
             El estudiante lo reporta desde su portal; aquí puedes corregirlo. Él
-            también podrá volver a cambiarlo.
+            también podrá volver a cambiarlo. Si el estudiante te mandó un
+            entregable por otro medio, márcalo como &quot;Recibido&quot;: cuenta como
+            entregado.
           </p>
         </div>
         <div className="mt-3 grid gap-4 border-t border-slate-100 pt-3 md:grid-cols-3">
@@ -122,12 +125,20 @@ export default async function SoportesPage({
               </h2>
               <ul className="mt-1 space-y-0.5 text-sm">
                 {paso.requisitos.map((r) => {
-                  const { cumplido, diligenciado, tieneArchivo } =
+                  const { cumplido, diligenciado, tieneArchivo, recibido } =
                     estadoRequisito(
                       r,
                       p.formularios_diligenciados,
-                      listaSoportes
+                      listaSoportes,
+                      p.requisitos_recibidos
                     );
+                  // La casilla solo hace falta si no está cumplido por lo que
+                  // entregó el estudiante, o si ya la marcaste (para desmarcar).
+                  const cumplidoSinMarca = estadoRequisito(
+                    r,
+                    p.formularios_diligenciados,
+                    listaSoportes
+                  ).cumplido;
                   return (
                     <li
                       key={r.id}
@@ -143,6 +154,14 @@ export default async function SoportesPage({
                           {diligenciado ? "Diligenciado" : "Sin diligenciar"} ·{" "}
                           {tieneArchivo ? "con evidencia" : "sin evidencia"}
                         </span>
+                      )}
+                      {(recibido || !cumplidoSinMarca) && (
+                        <MarcaRecibido
+                          practicanteId={p.id}
+                          requisitoId={r.id}
+                          nombre={r.nombre}
+                          recibido={recibido}
+                        />
                       )}
                     </li>
                   );
