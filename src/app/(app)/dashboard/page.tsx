@@ -40,12 +40,9 @@ export default async function DashboardPage() {
   const intersemestral = sinPrueba.filter((p) => p.intersemestral).length;
   const practicantes = sinPrueba.filter((p) => !p.intersemestral);
 
-  const total = practicantes.length;
-  const excluidos = [
-    intersemestral > 0 && `${intersemestral} en intersemestral`,
-    enPrueba > 0 &&
-      `${enPrueba} ${enPrueba === 1 ? "registro" : "registros"} de prueba`,
-  ].filter(Boolean);
+  // A cargo = en ejecución + intersemestral (sin los de prueba).
+  const enEjecucion = practicantes.length;
+  const aCargo = sinPrueba.length;
   const porEstado = ESTADOS.map((estado) => ({
     estado,
     cantidad: practicantes.filter((p) => p.estado === estado).length,
@@ -83,13 +80,26 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Total de practicantes</p>
-          <p className="mt-1 text-3xl font-bold text-primary">{total}</p>
-          {excluidos.length > 0 && (
-            <p className="mt-1 text-xs text-slate-500">
-              No incluye {excluidos.join(" ni ")}.
-            </p>
-          )}
+          <p className="text-sm text-slate-500">
+            {esAdmin ? "Total de estudiantes" : "Total de estudiantes a cargo"}
+          </p>
+          <p className="mt-1 text-3xl font-bold text-primary">{aCargo}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            En ejecución ({enEjecucion}) + intersemestral ({intersemestral}).
+            {enPrueba > 0 &&
+              ` No incluye ${enPrueba} ${
+                enPrueba === 1 ? "registro" : "registros"
+              } de prueba.`}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-sm text-slate-500">Estudiantes en ejecución</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{enEjecucion}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Cursan su práctica en el semestre. Los conteos por práctica, estado
+            y avance son sobre ellos.
+          </p>
         </div>
 
         {porPractica.map(({ practica, cantidad }) => (
@@ -114,8 +124,8 @@ export default async function DashboardPage() {
             {intersemestral}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Siguen su práctica en el intersemestral. No cuentan en los demás
-            totales.
+            Siguen su práctica en el intersemestral. Cuentan en el total a
+            cargo, no en los demás conteos.
           </p>
         </div>
       </div>
