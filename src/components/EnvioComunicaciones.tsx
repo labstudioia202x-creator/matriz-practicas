@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Practicante } from "@/lib/types";
 import {
+  AVANCES,
   ESTADOS,
   MAXIMO_IMAGENES_COMUNICACION,
   PRACTICAS,
@@ -50,6 +51,7 @@ export default function EnvioComunicaciones({
   const [busqueda, setBusqueda] = useState("");
   const [filtroPractica, setFiltroPractica] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("");
+  const [filtroAvance, setFiltroAvance] = useState("");
   const [filtroIntersemestral, setFiltroIntersemestral] = useState("");
   const [filtroPrueba, setFiltroPrueba] = useState("");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -85,6 +87,9 @@ export default function EnvioComunicaciones({
     return practicantes.filter((p) => {
       if (filtroPractica && p.practica !== filtroPractica) return false;
       if (filtroEstado && p.estado !== filtroEstado) return false;
+      if (filtroAvance && (p.avance ?? "Sin reportar") !== filtroAvance) {
+        return false;
+      }
       if (filtroIntersemestral === "si" && !p.intersemestral) return false;
       if (filtroIntersemestral === "no" && p.intersemestral) return false;
       if (filtroPrueba === "si" && !p.prueba) return false;
@@ -98,6 +103,7 @@ export default function EnvioComunicaciones({
     busqueda,
     filtroPractica,
     filtroEstado,
+    filtroAvance,
     filtroIntersemestral,
     filtroPrueba,
   ]);
@@ -343,6 +349,19 @@ export default function EnvioComunicaciones({
             ))}
           </select>
           <select
+            value={filtroAvance}
+            onChange={(e) => setFiltroAvance(e.target.value)}
+            aria-label="Filtrar por avance reportado"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+          >
+            <option value="">Todos los avances</option>
+            {[...AVANCES, "Sin reportar"].map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+          <select
             value={filtroIntersemestral}
             onChange={(e) => setFiltroIntersemestral(e.target.value)}
             aria-label="Filtrar por intersemestral"
@@ -396,7 +415,8 @@ export default function EnvioComunicaciones({
                     }`}
                   >
                     {p.correo_electronico || "Sin correo"} ·{" "}
-                    {p.practica || "—"} · {p.estado || "—"}
+                    {p.practica || "—"} · {p.estado || "—"} · Avance:{" "}
+                    {p.avance ?? "sin reportar"}
                     {p.intersemestral && " · Intersemestral"}
                     {p.prueba && " · Prueba"}
                   </span>
