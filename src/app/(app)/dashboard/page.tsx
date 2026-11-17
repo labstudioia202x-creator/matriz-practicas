@@ -62,9 +62,12 @@ export default async function DashboardPage() {
     cantidad: practicantes.filter((p) => p.practica === practica).length,
   }));
 
+  // Los reprobados ya tienen resultado del docente: no cuentan en el avance.
+  const sinReprobados = practicantes.filter((p) => p.estado !== "Reprobado");
+  const reprobados = practicantes.length - sinReprobados.length;
   const porAvance = [...AVANCES, null].map((avance) => ({
     avance,
-    cantidad: practicantes.filter((p) => p.avance === avance).length,
+    cantidad: sinReprobados.filter((p) => p.avance === avance).length,
   }));
 
   return (
@@ -157,6 +160,12 @@ export default async function DashboardPage() {
       <h2 className="mt-8 text-sm font-bold uppercase tracking-wide text-slate-500">
         Avance reportado por los estudiantes
       </h2>
+      {reprobados > 0 && (
+        <p className="mt-1 text-xs text-slate-500">
+          No incluye {reprobados}{" "}
+          {reprobados === 1 ? "estudiante reprobado" : "estudiantes reprobados"}.
+        </p>
+      )}
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {porAvance.map(({ avance, cantidad }) => (
           <div
