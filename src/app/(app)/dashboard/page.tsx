@@ -40,8 +40,13 @@ export default async function DashboardPage() {
   const intersemestral = sinPrueba.filter((p) => p.intersemestral).length;
   const practicantes = sinPrueba.filter((p) => !p.intersemestral);
 
-  // A cargo = en ejecución + intersemestral (sin los de prueba).
-  const enEjecucion = practicantes.length;
+  // Los reprobados ya tienen resultado del docente: salen de "en ejecución",
+  // de los conteos por práctica y de los de avance; solo cuentan por estado.
+  const enCurso = practicantes.filter((p) => p.estado !== "Reprobado");
+  const reprobados = practicantes.length - enCurso.length;
+
+  // A cargo = en ejecución + intersemestral + reprobados (sin los de prueba).
+  const enEjecucion = enCurso.length;
   const aCargo = sinPrueba.length;
   const porEstado = ESTADOS.map((estado) => ({
     estado,
@@ -59,15 +64,12 @@ export default async function DashboardPage() {
 
   const porPractica = PRACTICAS.map((practica) => ({
     practica,
-    cantidad: practicantes.filter((p) => p.practica === practica).length,
+    cantidad: enCurso.filter((p) => p.practica === practica).length,
   }));
 
-  // Los reprobados ya tienen resultado del docente: no cuentan en el avance.
-  const sinReprobados = practicantes.filter((p) => p.estado !== "Reprobado");
-  const reprobados = practicantes.length - sinReprobados.length;
   const porAvance = [...AVANCES, null].map((avance) => ({
     avance,
-    cantidad: sinReprobados.filter((p) => p.avance === avance).length,
+    cantidad: enCurso.filter((p) => p.avance === avance).length,
   }));
 
   return (
@@ -88,7 +90,8 @@ export default async function DashboardPage() {
           </p>
           <p className="mt-1 text-3xl font-bold text-primary">{aCargo}</p>
           <p className="mt-1 text-xs text-slate-500">
-            En ejecución ({enEjecucion}) + intersemestral ({intersemestral}).
+            En ejecución ({enEjecucion}) + intersemestral ({intersemestral})
+            {reprobados > 0 && ` + reprobados (${reprobados})`}.
             {enPrueba > 0 &&
               ` No incluye ${enPrueba} ${
                 enPrueba === 1 ? "registro" : "registros"
@@ -100,8 +103,8 @@ export default async function DashboardPage() {
           <p className="text-sm text-slate-500">Estudiantes en ejecución</p>
           <p className="mt-1 text-3xl font-bold text-primary">{enEjecucion}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Cursan su práctica en el semestre. Los conteos por práctica, estado
-            y avance son sobre ellos.
+            Cursan su práctica en el semestre, sin intersemestral ni
+            reprobados. Los conteos por práctica y avance son sobre ellos.
           </p>
         </div>
 
